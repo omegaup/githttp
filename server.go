@@ -15,8 +15,13 @@ import (
 type GitOperation int
 
 const (
+	// OperationPull denotes a pull operation.
 	OperationPull GitOperation = iota
+
+	// OperationPush denotes a push operation.
 	OperationPush
+
+	// OperationBrowse denotes a browse request.
 	OperationBrowse
 )
 
@@ -33,12 +38,18 @@ func (o GitOperation) String() string {
 	}
 }
 
-// Authorization level describes the result of an authorization attempt.
+// AuthorizationLevel describes the result of an authorization attempt.
 type AuthorizationLevel int
 
 const (
+	//AuthorizationDenied denotes that the operation was not allowed.
 	AuthorizationDenied AuthorizationLevel = iota
+
+	// AuthorizationAllowed denotes that the operation was allowed.
 	AuthorizationAllowed
+
+	// AuthorizationAllowedRestricted denotes that the operation was allowed
+	// (with restrictions).
 	AuthorizationAllowedRestricted
 )
 

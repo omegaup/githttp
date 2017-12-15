@@ -295,30 +295,30 @@ func handleShow(
 		defer commit.Free()
 
 		return formatCommit(commit), nil
-	} else {
-		// Show path
-		obj, err := repository.RevparseSingle(fmt.Sprintf("%s:%s", rev, splitPath[3]))
+	}
+
+	// Show path
+	obj, err := repository.RevparseSingle(fmt.Sprintf("%s:%s", rev, splitPath[3]))
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	defer obj.Free()
+	if obj.Type() == git.ObjectTree {
+		tree, err := obj.AsTree()
 		if err != nil {
-			return nil, ErrNotFound
+			return nil, err
 		}
-		defer obj.Free()
-		if obj.Type() == git.ObjectTree {
-			tree, err := obj.AsTree()
-			if err != nil {
-				return nil, err
-			}
-			defer tree.Free()
+		defer tree.Free()
 
-			return formatTree(tree), nil
-		} else if obj.Type() == git.ObjectBlob {
-			blob, err := obj.AsBlob()
-			if err != nil {
-				return nil, err
-			}
-			defer blob.Free()
-
-			return formatBlob(blob), nil
+		return formatTree(tree), nil
+	} else if obj.Type() == git.ObjectBlob {
+		blob, err := obj.AsBlob()
+		if err != nil {
+			return nil, err
 		}
+		defer blob.Free()
+
+		return formatBlob(blob), nil
 	}
 
 	return nil, ErrNotFound

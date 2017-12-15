@@ -23,7 +23,7 @@ var (
 	// expected version (2).
 	ErrInvalidVersion = errors.New("bad pack version")
 
-	// ErrLargePackFile is returned when an offset in a packfile would overflow a
+	// ErrLargePackfile is returned when an offset in a packfile would overflow a
 	// 32-bit signed integer.
 	ErrLargePackfile = errors.New("packfile too large")
 )
