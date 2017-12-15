@@ -77,7 +77,7 @@ func TestHandleLog(t *testing.T) {
 
 	expected := &LogResult{
 		Log: []*CommitResult{
-			&CommitResult{
+			{
 				Commit:  "6d2439d2e920ba92d8e485e75d1b740ae51b609a",
 				Tree:    "06f8815b4dc1ba5cabf619d8a8ef392d0f88a2f1",
 				Parents: []string{"88aa3454adb27c3c343ab57564d962a0a7f6a3c1"},
@@ -93,7 +93,7 @@ func TestHandleLog(t *testing.T) {
 				},
 				Message: "Copy\n",
 			},
-			&CommitResult{
+			{
 				Commit:  "88aa3454adb27c3c343ab57564d962a0a7f6a3c1",
 				Tree:    "417c01c8795a35b8e835113a85a5c0c1c77f67fb",
 				Parents: []string{},
@@ -130,7 +130,7 @@ func TestHandleLogCommit(t *testing.T) {
 
 	expected := &LogResult{
 		Log: []*CommitResult{
-			&CommitResult{
+			{
 				Commit:  "88aa3454adb27c3c343ab57564d962a0a7f6a3c1",
 				Tree:    "417c01c8795a35b8e835113a85a5c0c1c77f67fb",
 				Parents: []string{},
@@ -201,7 +201,7 @@ func TestHandleShowTree(t *testing.T) {
 	expected := &TreeResult{
 		Id: "417c01c8795a35b8e835113a85a5c0c1c77f67fb",
 		Entries: []*TreeEntryResult{
-			&TreeEntryResult{
+			{
 				Id:   "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 				Mode: 0100644,
 				Type: "blob",
@@ -259,7 +259,7 @@ func TestHandleNotFound(t *testing.T) {
 
 		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, path, log, &buf)
 		if err != ErrNotFound {
-			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", err, buf.String())
+			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", path, err, buf.String())
 		}
 	}
 }

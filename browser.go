@@ -18,6 +18,7 @@ const (
 )
 
 var (
+	// ErrNotFound is returned if a reference is not found.
 	ErrNotFound = errors.New("not found")
 )
 
@@ -317,10 +318,10 @@ func handleShow(
 			defer blob.Free()
 
 			return formatBlob(blob), nil
-		} else {
-			return nil, ErrNotFound
 		}
 	}
+
+	return nil, ErrNotFound
 }
 
 func handleBrowse(
@@ -337,7 +338,7 @@ func handleBrowse(
 	}
 	defer repository.Free()
 
-	var result interface{} = nil
+	var result interface{}
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
 		result, err = handleRefs(repository, level)
 		if err != nil {

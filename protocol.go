@@ -19,6 +19,8 @@ const (
 )
 
 var (
+	// ErrBadRequest is returned whtn the client sends a bad request. HTTP 400
+	// will be returned to http clients.
 	ErrBadRequest = errors.New("bad request")
 
 	kPullCapabilities = Capabilities{"agent=gohttp", "allow-tip-sha1-in-want", "ofs-delta", "shallow", "thin-pack"}
@@ -61,14 +63,17 @@ type GitCommand struct {
 	logMessage    string
 }
 
+// IsCreate returns whether the command creates a ref.
 func (c *GitCommand) IsCreate() bool {
 	return c.Old.IsZero()
 }
 
+// IsUpdate returns whether the command updates a ref.
 func (c *GitCommand) IsUpdate() bool {
 	return !c.Old.IsZero() && !c.New.IsZero()
 }
 
+// IsDelete returns whether the command deletes a ref.
 func (c *GitCommand) IsDelete() bool {
 	return c.New.IsZero()
 }
@@ -192,11 +197,7 @@ func commitPackfile(packPath string, writepack *git.OdbWritepack) error {
 		return err
 	}
 
-	if err = writepack.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return writepack.Commit()
 }
 
 // handleInfoRefs handles git's pack-protocol reference discovery (or the

@@ -23,6 +23,7 @@ type PktLineWriter struct {
 	w io.Writer
 }
 
+// NewPktLineWriter creates a new pkt-line based on the supplied Writer.
 func NewPktLineWriter(w io.Writer) *PktLineWriter {
 	return &PktLineWriter{
 		w: w,
@@ -31,19 +32,16 @@ func NewPktLineWriter(w io.Writer) *PktLineWriter {
 
 // Flush sends a flush-pkt, which is a special value in the pkt-line protocol.
 func (w *PktLineWriter) Flush() error {
-	if _, err := w.w.Write([]byte("0000")); err != nil {
-		return err
-	}
-	return nil
+	_, err := w.w.Write([]byte("0000"))
+	return err
 }
 
+// Close sends a flush-pkt.
 func (w *PktLineWriter) Close() error {
-	if err := w.Flush(); err != nil {
-		return err
-	}
-	return nil
+	return w.Flush()
 }
 
+// WritePktLine sends one pkt-line.
 func (w *PktLineWriter) WritePktLine(data []byte) error {
 	if len(data)+kPktLineHeaderLength > 0x10000 {
 		return errors.New("data too long")
@@ -51,10 +49,8 @@ func (w *PktLineWriter) WritePktLine(data []byte) error {
 	if _, err := w.w.Write([]byte(fmt.Sprintf("%04x", kPktLineHeaderLength+len(data)))); err != nil {
 		return err
 	}
-	if _, err := w.w.Write(data); err != nil {
-		return err
-	}
-	return nil
+	_, err := w.w.Write(data)
+	return err
 }
 
 // A PktLineReader implements git pkt-line protocol on top of an io.Reader. The
@@ -64,6 +60,7 @@ type PktLineReader struct {
 	r io.Reader
 }
 
+// NewPktLineReader creates a new pkt-line based on the supplied Reader.
 func NewPktLineReader(r io.Reader) *PktLineReader {
 	return &PktLineReader{
 		r: r,
