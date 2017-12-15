@@ -1,5 +1,7 @@
 # githttp
 
+![Documentation](https://godoc.org/github.com/omegaup/githttp?status.svg)
+
 A Go implementation of Git's HTTP "smart" protocol.
 
 Minimalistic example with git bare repositories (with the `.git` extension) in
