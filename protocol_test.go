@@ -8,8 +8,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
+	"regexp"
 	"testing"
+	"time"
 )
 
 func gitOid(hash string) git.Oid {
@@ -527,7 +530,15 @@ func TestHandlePushUnborn(t *testing.T) {
 	}
 
 	log := log15.New()
-	err = handlePush(dir, AuthorizationAllowed, noopUpdateCallback, log, &inBuf, &outBuf)
+	err = handlePush(
+		dir,
+		AuthorizationAllowed,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
@@ -566,6 +577,146 @@ func TestHandlePushUnborn(t *testing.T) {
 	}
 }
 
+func TestHandlePushPreprocess(t *testing.T) {
+	var inBuf, outBuf bytes.Buffer
+	dir, err := ioutil.TempDir("", "protocol_test")
+	if err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	{
+		repo, err := git.InitRepository(dir, true)
+		if err != nil {
+			t.Fatalf("Failed to initialize git repository: %v", err)
+		}
+		repo.Free()
+	}
+
+	// Taken from git 2.14.1
+	pw := NewPktLineWriter(&inBuf)
+	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 f460ceba1a6ac94a074efe17011866b93fd51d39 refs/heads/master\x00report-status\n"))
+	pw.Flush()
+
+	f, err := os.Open("testdata/sumas.pack")
+	if err != nil {
+		t.Fatalf("Failed to open the packfile: %v", err)
+	}
+	defer f.Close()
+	if _, err = io.Copy(&inBuf, f); err != nil {
+		t.Fatalf("Failed to copy the packfile: %v", err)
+	}
+
+	log := log15.New()
+	err = handlePush(
+		dir,
+		AuthorizationAllowed,
+		noopUpdateCallback,
+		func(
+			originalRepository *git.Repository,
+			tmpDir string,
+			originalPackPath string,
+			originalCommands []*GitCommand,
+		) (string, []*GitCommand, error) {
+			if len(originalCommands) != 1 {
+				t.Fatalf("More than one command unsupported")
+			}
+
+			originalCommit, err := originalRepository.LookupCommit(originalCommands[0].New)
+			if err != nil {
+				log.Error("Error looking up commit", "err", err)
+				return originalPackPath, originalCommands, err
+			}
+			defer originalCommit.Free()
+
+			newPackPath := path.Join(tmpDir, "new.pack")
+			newCommands, err := SpliceCommit(
+				originalRepository,
+				originalCommit,
+				nil,
+				[]SplitCommitDescription{
+					SplitCommitDescription{
+						PathRegexps: []*regexp.Regexp{
+							regexp.MustCompile("^cases/$"),
+						},
+						ReferenceName: "refs/heads/private",
+					},
+					SplitCommitDescription{
+						PathRegexps: []*regexp.Regexp{
+							regexp.MustCompile("^statements/$"),
+						},
+						ReferenceName: "refs/heads/public",
+					},
+				},
+				&git.Signature{
+					Name:  "author",
+					Email: "author@test.test",
+					When:  time.Unix(0, 0),
+				},
+				&git.Signature{
+					Name:  "committer",
+					Email: "committer@test.test",
+					When:  time.Unix(0, 0),
+				},
+				"refs/heads/master",
+				nil,
+				"Reviewed-In: http://localhost/review/1/",
+				newPackPath,
+				log,
+			)
+			if err != nil {
+				log.Error("Error splicing commit", "err", err)
+				return originalPackPath, originalCommands, err
+			}
+
+			log.Debug("Commands changed", "old commands", originalCommands, "newCommands", newCommands)
+
+			return newPackPath, newCommands, nil
+		},
+		log,
+		&inBuf,
+		&outBuf,
+	)
+	if err != nil {
+		t.Fatalf("Failed to push: %v", err)
+	}
+
+	if !comparePktLineResponse(
+		t,
+		[]expectedPktLine{
+			{nil, "unpack ok\n"},
+			{nil, "ok refs/heads/master\n"},
+			{ErrFlush, ""},
+		},
+		&outBuf,
+	) {
+		return
+	}
+
+	var buf bytes.Buffer
+	err = handlePrePull(dir, AuthorizationAllowed, log, &buf)
+	if err != nil {
+		t.Errorf("Failed to get pre-pull: %v", err)
+	}
+	discovery, err := DiscoverReferences(&buf)
+	if err != nil {
+		t.Errorf("Failed to parse the reference discovery: %v", err)
+	}
+	expectedSymref := "refs/heads/master"
+	if expectedSymref != discovery.HeadSymref {
+		t.Errorf("Expected %v, got %v", expectedSymref, discovery.HeadSymref)
+	}
+	expectedReferences := map[string]git.Oid{
+		"HEAD":               gitOid("8f3e429bd47a1a3e2f41739dfd58b946f367a071"),
+		"refs/heads/master":  gitOid("8f3e429bd47a1a3e2f41739dfd58b946f367a071"),
+		"refs/heads/public":  gitOid("e9b04df7b2fe682b35ae7e33841e480fcaa7ffec"),
+		"refs/heads/private": gitOid("5a6e286aa91c51b1624d58651c5b6914d041c759"),
+	}
+	if !reflect.DeepEqual(expectedReferences, discovery.References) {
+		t.Errorf("Expected %v, got %v", expectedReferences, discovery.References)
+	}
+}
+
 func TestHandlePushCallback(t *testing.T) {
 	var inBuf, outBuf bytes.Buffer
 	dir, err := ioutil.TempDir("", "protocol_test")
@@ -597,13 +748,21 @@ func TestHandlePushCallback(t *testing.T) {
 	}
 
 	log := log15.New()
-	err = handlePush(dir, AuthorizationAllowed, func(
-		repository *git.Repository,
-		command *GitCommand,
-		oldCommit, newCommit *git.Commit,
-	) error {
-		return errors.New("go away")
-	}, log, &inBuf, &outBuf)
+	err = handlePush(
+		dir,
+		AuthorizationAllowed,
+		func(
+			repository *git.Repository,
+			command *GitCommand,
+			oldCommit, newCommit *git.Commit,
+		) error {
+			return errors.New("go away")
+		},
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
@@ -650,7 +809,15 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 	}
 
 	log := log15.New()
-	err = handlePush(dir, AuthorizationAllowed, noopUpdateCallback, log, &inBuf, &outBuf)
+	err = handlePush(
+		dir,
+		AuthorizationAllowed,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
@@ -697,7 +864,15 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 	}
 
 	log := log15.New()
-	err = handlePush(dir, AuthorizationAllowedRestricted, noopUpdateCallback, log, &inBuf, &outBuf)
+	err = handlePush(
+		dir,
+		AuthorizationAllowedRestricted,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
@@ -744,7 +919,15 @@ func TestHandlePushMerge(t *testing.T) {
 	}
 
 	log := log15.New()
-	err = handlePush(dir, AuthorizationAllowedRestricted, noopUpdateCallback, log, &inBuf, &outBuf)
+	err = handlePush(
+		dir,
+		AuthorizationAllowedRestricted,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
@@ -791,7 +974,15 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 	}
 
 	log := log15.New()
-	err = handlePush(dir, AuthorizationAllowedRestricted, noopUpdateCallback, log, &inBuf, &outBuf)
+	err = handlePush(
+		dir,
+		AuthorizationAllowedRestricted,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}

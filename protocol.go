@@ -549,6 +549,7 @@ func handlePush(
 	repositoryPath string,
 	level AuthorizationLevel,
 	updateCallback UpdateCallback,
+	preprocessCallback PreprocessCallback,
 	log log15.Logger,
 	r io.Reader,
 	w io.Writer,
@@ -682,6 +683,20 @@ func handlePush(
 		}
 	}
 
+	originalCommands := commands
+	if !failed {
+		packPath, commands, err = preprocessCallback(
+			repository,
+			tmpDir,
+			packPath,
+			originalCommands,
+		)
+		if err != nil {
+			log.Error("Preprocessing failed", "err", err)
+			failed = true
+		}
+	}
+
 	if !failed {
 		err = commitPackfile(packPath, writepack)
 		if err != nil {
@@ -722,7 +737,7 @@ func handlePush(
 	defer pw.Flush()
 
 	pw.WritePktLine([]byte(fmt.Sprintf("unpack %s\n", unpackStatus)))
-	for _, command := range commands {
+	for _, command := range originalCommands {
 		if command.status == "ok" {
 			pw.WritePktLine([]byte(fmt.Sprintf(
 				"ok %s\n",

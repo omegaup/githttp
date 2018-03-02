@@ -87,21 +87,26 @@ func noopUpdateCallback(
 	return nil
 }
 
-// A StaticServeCallback is invoked by GitServer when a GET operation is
-// issued, and can be used to serve static content that does not depend on the
-// requester. It returns true if it handled the request.
-type StaticServeCallback func(
-	requestPath string,
-	w http.ResponseWriter,
-	r *http.Request,
-) bool
+// PreprocessCallback is invoked by GitServer when a user attempts to update a
+// repository. It can perform an arbitrary transformation of the packfile and
+// the update commands to be performed. A temporary directory is provided so
+// that the new packfile can be stored there, if needed, and will be deleted
+// afterwards. It returns the path of the new packfile, a new list of commands,
+// and an error in case the operation failed.
+type PreprocessCallback func(
+	repository *git.Repository,
+	tmpDir string,
+	packPath string,
+	commands []*GitCommand,
+) (string, []*GitCommand, error)
 
-func noopStaticServeCallback(
-	requestPath string,
-	w http.ResponseWriter,
-	r *http.Request,
-) bool {
-	return false
+func noopPreprocessCallback(
+	repository *git.Repository,
+	tmpDir string,
+	packPath string,
+	commands []*GitCommand,
+) (string, []*GitCommand, error) {
+	return packPath, commands, nil
 }
 
 // writeHeader clears any pending headers from the reply and sets the HTTP
@@ -121,12 +126,12 @@ func writeHeader(w http.ResponseWriter, err error) {
 
 // A gitHttpHandler implements git's smart protocol.
 type gitHttpHandler struct {
-	rootPath            string
-	enableBrowse        bool
-	log                 log15.Logger
-	authCallback        AuthorizationCallback
-	updateCallback      UpdateCallback
-	staticServeCallback StaticServeCallback
+	rootPath           string
+	enableBrowse       bool
+	log                log15.Logger
+	authCallback       AuthorizationCallback
+	updateCallback     UpdateCallback
+	preprocessCallback PreprocessCallback
 }
 
 func (h *gitHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +141,10 @@ func (h *gitHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	repositoryName := splitPath[0]
+	if strings.HasPrefix(repositoryName, ".") {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	relativeURL, err := url.Parse(
 		fmt.Sprintf("git:///%s?%s", splitPath[1], r.URL.RawQuery),
 	)
@@ -202,7 +211,7 @@ func (h *gitHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePush(repositoryPath, level, h.updateCallback, h.log, r.Body, w); err != nil {
+		if err := handlePush(repositoryPath, level, h.updateCallback, h.preprocessCallback, h.log, r.Body, w); err != nil {
 			writeHeader(w, err)
 			return
 		}
@@ -219,9 +228,6 @@ func (h *gitHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if trailingSlash && !strings.HasSuffix(cleanedPath, "/") {
 			cleanedPath += "/"
-		}
-		if h.staticServeCallback(cleanedPath, w, r) {
-			return
 		}
 		w.Header().Set("Content-Type", "text/json")
 		if err := handleBrowse(repositoryPath, level, cleanedPath, h.log, w); err != nil {
@@ -243,16 +249,16 @@ func GitServer(
 	enableBrowse bool,
 	authCallback AuthorizationCallback,
 	updateCallback UpdateCallback,
-	staticServeCallback StaticServeCallback,
+	preprocessCallback PreprocessCallback,
 	log log15.Logger,
 ) http.Handler {
 	handler := &gitHttpHandler{
-		rootPath:            rootPath,
-		enableBrowse:        enableBrowse,
-		log:                 log,
-		authCallback:        authCallback,
-		updateCallback:      updateCallback,
-		staticServeCallback: staticServeCallback,
+		rootPath:           rootPath,
+		enableBrowse:       enableBrowse,
+		log:                log,
+		authCallback:       authCallback,
+		updateCallback:     updateCallback,
+		preprocessCallback: preprocessCallback,
 	}
 
 	if handler.authCallback == nil {
@@ -263,8 +269,8 @@ func GitServer(
 		handler.updateCallback = noopUpdateCallback
 	}
 
-	if handler.staticServeCallback == nil {
-		handler.staticServeCallback = noopStaticServeCallback
+	if handler.preprocessCallback == nil {
+		handler.preprocessCallback = noopPreprocessCallback
 	}
 
 	return handler
