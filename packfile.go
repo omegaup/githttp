@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	kIndexFileMagic  = 0xff744f63
-	kPackFileVersion = 2
-	kMSB32           = 0x80000000
+	indexFileMagic  = 0xff744f63
+	packFileVersion = 2
+	msb32           = 0x80000000
 )
 
 var (
@@ -67,10 +67,10 @@ func ParseIndex(filename string, odb *git.Odb) (*PackfileIndex, error) {
 	}
 	defer f.Close()
 
-	if magic, err := readUInt32(f); err != nil || magic != kIndexFileMagic {
+	if magic, err := readUInt32(f); err != nil || magic != indexFileMagic {
 		return nil, ErrInvalidMagic
 	}
-	if version, err := readUInt32(f); err != nil || version != kPackFileVersion {
+	if version, err := readUInt32(f); err != nil || version != packFileVersion {
 		return nil, ErrInvalidVersion
 	}
 
@@ -112,7 +112,7 @@ func ParseIndex(filename string, odb *git.Odb) (*PackfileIndex, error) {
 		if err != nil {
 			return nil, err
 		}
-		if offset&kMSB32 != 0 {
+		if offset&msb32 != 0 {
 			return nil, ErrLargePackfile
 		}
 		index.Entries[i].Offset = uint64(offset)

@@ -199,10 +199,10 @@ func TestHandleShowTree(t *testing.T) {
 	}
 
 	expected := &TreeResult{
-		Id: "417c01c8795a35b8e835113a85a5c0c1c77f67fb",
+		ID: "417c01c8795a35b8e835113a85a5c0c1c77f67fb",
 		Entries: []*TreeEntryResult{
 			{
-				Id:   "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+				ID:   "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 				Mode: 0100644,
 				Type: "blob",
 				Name: "empty",
@@ -227,7 +227,7 @@ func TestHandleShowBlob(t *testing.T) {
 	}
 
 	expected := &BlobResult{
-		Id:       "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+		ID:       "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 		Size:     0,
 		Contents: "",
 	}

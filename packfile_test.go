@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	kPackFilename  = "testdata/repo.git/objects/pack/pack-3915156951f90b8239a1d1933cbe85ae1bc7457f.pack"
-	kIndexFilename = "testdata/repo.git/objects/pack/pack-3915156951f90b8239a1d1933cbe85ae1bc7457f.idx"
+	packFilename  = "testdata/repo.git/objects/pack/pack-3915156951f90b8239a1d1933cbe85ae1bc7457f.pack"
+	indexFilename = "testdata/repo.git/objects/pack/pack-3915156951f90b8239a1d1933cbe85ae1bc7457f.idx"
 )
 
 func testParsedIndex(t *testing.T, idx *PackfileIndex) {
@@ -47,7 +47,7 @@ func TestParseIndex(t *testing.T) {
 	}
 	defer odb.Free()
 
-	backend, err := git.NewOdbBackendOnePack(kPackFilename)
+	backend, err := git.NewOdbBackendOnePack(packFilename)
 	if err != nil {
 		t.Fatalf("Failed to create backend: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestParseIndex(t *testing.T) {
 		t.Fatalf("Failed to add backend: %v", err)
 	}
 
-	idx, err := ParseIndex(kIndexFilename, odb)
+	idx, err := ParseIndex(indexFilename, odb)
 	if err != nil {
 		t.Errorf("Failed to parse the index: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestUnpackPackfile(t *testing.T) {
 	}
 	defer odb.Free()
 
-	f, err := os.Open(kPackFilename)
+	f, err := os.Open(packFilename)
 	if err != nil {
 		t.Fatalf("Failed to open the index file: %v", err)
 	}

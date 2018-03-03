@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	kSymrefHeadPrefix = "symref=HEAD:"
+	symrefHeadPrefix = "symref=HEAD:"
 )
 
 var (
@@ -23,8 +23,8 @@ var (
 	// will be returned to http clients.
 	ErrBadRequest = errors.New("bad request")
 
-	kPullCapabilities = Capabilities{"agent=gohttp", "allow-tip-sha1-in-want", "ofs-delta", "shallow", "thin-pack"}
-	kPushCapabilities = Capabilities{"agent=gohttp", "atomic", "ofs-delta", "report-status"}
+	pullCapabilities = Capabilities{"agent=gohttp", "allow-tip-sha1-in-want", "ofs-delta", "shallow", "thin-pack"}
+	pushCapabilities = Capabilities{"agent=gohttp", "atomic", "ofs-delta", "report-status"}
 )
 
 // A Capabilities represents a set of git protocol capabilities.
@@ -151,8 +151,8 @@ func DiscoverReferences(r io.Reader) (*ReferenceDiscovery, error) {
 	// The server can optionally tell the client what branch to check out upon
 	// cloning.
 	for _, capability := range discovery.Capabilities {
-		if strings.HasPrefix(capability, kSymrefHeadPrefix) {
-			discovery.HeadSymref = capability[len(kSymrefHeadPrefix):]
+		if strings.HasPrefix(capability, symrefHeadPrefix) {
+			discovery.HeadSymref = capability[len(symrefHeadPrefix):]
 			break
 		}
 	}
@@ -172,11 +172,11 @@ func validateParent(
 		return commit.ParentCount() == 0
 	}
 	// This commit must have exactly one parent: the branch's current HEAD.
-	parentId := commit.ParentId(0)
-	if parentId == nil {
+	parentID := commit.ParentId(0)
+	if parentID == nil {
 		return false
 	}
-	return parentId.Equal(ref.Target())
+	return parentID.Equal(ref.Target())
 }
 
 // isRestrictedRef returns whether a ref name is restricted. Only
@@ -251,7 +251,7 @@ func handleInfoRefs(
 			"%s HEAD\x00%s %s%s\n",
 			head.Target().String(),
 			strings.Join(capabilities, " "),
-			kSymrefHeadPrefix,
+			symrefHeadPrefix,
 			head.Name(),
 		)))
 		sentCapabilities = true
@@ -306,7 +306,7 @@ func handlePrePull(
 	return handleInfoRefs(
 		repositoryPath,
 		"git-upload-pack",
-		kPullCapabilities,
+		pullCapabilities,
 		true,
 		false,
 		level,
@@ -368,7 +368,7 @@ func handlePull(
 				if strings.Contains(cap, "=") {
 					continue
 				}
-				if !kPullCapabilities.Contains(cap) {
+				if !pullCapabilities.Contains(cap) {
 					log.Error("Unsupported capability", "err", cap)
 					return ErrBadRequest
 				}
@@ -533,7 +533,7 @@ func handlePrePush(
 	return handleInfoRefs(
 		repositoryPath,
 		"git-receive-pack",
-		kPushCapabilities,
+		pushCapabilities,
 		false,
 		true,
 		level,

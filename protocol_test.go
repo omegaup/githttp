@@ -520,7 +520,7 @@ func TestHandlePushUnborn(t *testing.T) {
 	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
 	pw.Flush()
 
-	f, err := os.Open(kPackFilename)
+	f, err := os.Open(packFilename)
 	if err != nil {
 		t.Fatalf("Failed to open the packfile: %v", err)
 	}
@@ -738,7 +738,7 @@ func TestHandlePushCallback(t *testing.T) {
 	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
 	pw.Flush()
 
-	f, err := os.Open(kPackFilename)
+	f, err := os.Open(packFilename)
 	if err != nil {
 		t.Fatalf("Failed to open the packfile: %v", err)
 	}
@@ -799,7 +799,7 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 0101010101010101010101010101010101010101 refs/heads/master\x00report-status\n"))
 	pw.Flush()
 
-	f, err := os.Open(kPackFilename)
+	f, err := os.Open(packFilename)
 	if err != nil {
 		t.Fatalf("Failed to open the packfile: %v", err)
 	}
@@ -854,7 +854,7 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/meta/config\x00report-status\n"))
 	pw.Flush()
 
-	f, err := os.Open(kPackFilename)
+	f, err := os.Open(packFilename)
 	if err != nil {
 		t.Fatalf("Failed to open the packfile: %v", err)
 	}

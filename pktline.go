@@ -13,7 +13,7 @@ var (
 )
 
 const (
-	kPktLineHeaderLength = 4
+	pktLineHeaderLength = 4
 )
 
 // A PktLineWriter implements git pkt-line protocol on top of an io.Writer. The
@@ -43,10 +43,10 @@ func (w *PktLineWriter) Close() error {
 
 // WritePktLine sends one pkt-line.
 func (w *PktLineWriter) WritePktLine(data []byte) error {
-	if len(data)+kPktLineHeaderLength > 0x10000 {
+	if len(data)+pktLineHeaderLength > 0x10000 {
 		return errors.New("data too long")
 	}
-	if _, err := w.w.Write([]byte(fmt.Sprintf("%04x", kPktLineHeaderLength+len(data)))); err != nil {
+	if _, err := w.w.Write([]byte(fmt.Sprintf("%04x", pktLineHeaderLength+len(data)))); err != nil {
 		return err
 	}
 	_, err := w.w.Write(data)
@@ -70,7 +70,7 @@ func NewPktLineReader(r io.Reader) *PktLineReader {
 // ReadPktLine returns the next pkt-line. The special value of pkt-flush is
 // represented by ErrFlush, to distinguish it from the empty pkt-line.
 func (r *PktLineReader) ReadPktLine() ([]byte, error) {
-	hexLength := make([]byte, kPktLineHeaderLength)
+	hexLength := make([]byte, pktLineHeaderLength)
 	if _, err := io.ReadFull(r.r, hexLength); err != nil {
 		return nil, err
 	}
@@ -81,10 +81,10 @@ func (r *PktLineReader) ReadPktLine() ([]byte, error) {
 	if length == 0 {
 		return nil, ErrFlush
 	}
-	if length < kPktLineHeaderLength {
+	if length < pktLineHeaderLength {
 		return nil, io.ErrUnexpectedEOF
 	}
-	data := make([]byte, length-kPktLineHeaderLength)
+	data := make([]byte, length-pktLineHeaderLength)
 	if _, err := io.ReadFull(r.r, data); err != nil {
 		return nil, err
 	}

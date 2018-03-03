@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	kBlobDisplayMaxSize = 10 * 1024
+	// BlobDisplayMaxSize is the maximum size that a blob can be in order to
+	// display it.
+	BlobDisplayMaxSize = 10 * 1024
 )
 
 var (
@@ -77,13 +79,13 @@ func (r *LogResult) String() string {
 type TreeEntryResult struct {
 	Mode git.Filemode `json:"mode"`
 	Type string       `json:"type"`
-	Id   string       `json:"id"`
+	ID   string       `json:"id"`
 	Name string       `json:"name"`
 }
 
 // A TreeResult represents a git tree.
 type TreeResult struct {
-	Id      string             `json:"id"`
+	ID      string             `json:"id"`
 	Entries []*TreeEntryResult `json:"entries"`
 }
 
@@ -95,7 +97,7 @@ func (r *TreeResult) String() string {
 
 // A BlobResult represents a git blob.
 type BlobResult struct {
-	Id       string `json:"id"`
+	ID       string `json:"id"`
 	Size     int64  `json:"size"`
 	Contents string `json:"contents,omitempty"`
 }
@@ -139,7 +141,7 @@ func formatTreeEntry(
 	return &TreeEntryResult{
 		Mode: entry.Filemode,
 		Type: strings.ToLower(entry.Type.String()),
-		Id:   entry.Id.String(),
+		ID:   entry.Id.String(),
 		Name: entry.Name,
 	}
 }
@@ -148,7 +150,7 @@ func formatTree(
 	tree *git.Tree,
 ) *TreeResult {
 	result := &TreeResult{
-		Id:      tree.Id().String(),
+		ID:      tree.Id().String(),
 		Entries: make([]*TreeEntryResult, tree.EntryCount()),
 	}
 	for i := uint64(0); i < tree.EntryCount(); i++ {
@@ -161,10 +163,10 @@ func formatBlob(
 	blob *git.Blob,
 ) *BlobResult {
 	result := &BlobResult{
-		Id:   blob.Id().String(),
+		ID:   blob.Id().String(),
 		Size: blob.Size(),
 	}
-	if result.Size < kBlobDisplayMaxSize {
+	if result.Size < BlobDisplayMaxSize {
 		result.Contents = base64.StdEncoding.EncodeToString(blob.Contents())
 	}
 	return result

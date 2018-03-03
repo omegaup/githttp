@@ -124,8 +124,8 @@ func writeHeader(w http.ResponseWriter, err error) {
 	}
 }
 
-// A gitHttpHandler implements git's smart protocol.
-type gitHttpHandler struct {
+// A gitHTTPHandler implements git's smart protocol.
+type gitHTTPHandler struct {
 	rootPath           string
 	enableBrowse       bool
 	log                log15.Logger
@@ -134,7 +134,7 @@ type gitHttpHandler struct {
 	preprocessCallback PreprocessCallback
 }
 
-func (h *gitHttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	splitPath := strings.SplitN(r.URL.Path[1:], "/", 2)
 	if len(splitPath) < 2 {
 		w.WriteHeader(http.StatusNotFound)
@@ -252,7 +252,7 @@ func GitServer(
 	preprocessCallback PreprocessCallback,
 	log log15.Logger,
 ) http.Handler {
-	handler := &gitHttpHandler{
+	handler := &gitHTTPHandler{
 		rootPath:           rootPath,
 		enableBrowse:       enableBrowse,
 		log:                log,
