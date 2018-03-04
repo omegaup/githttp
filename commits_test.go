@@ -5,6 +5,8 @@ import (
 	git "github.com/lhchavez/git2go"
 	"io/ioutil"
 	"os"
+	"path"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -68,6 +70,101 @@ func buildTree(
 	}
 	log.Info("Creating tree", "id", mergedTreeID)
 	return repository.LookupTree(mergedTreeID)
+}
+
+func TestSplitTrees(t *testing.T) {
+	dir, err := ioutil.TempDir("", "commits_test")
+	if err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	repository, err := git.InitRepository(dir, true)
+	if err != nil {
+		t.Fatalf("Failed to initialize git repository: %v", err)
+	}
+	defer repository.Free()
+
+	log := log15.New()
+
+	originalTree, err := buildTree(
+		repository,
+		map[string]string{
+			// public
+			"examples/0.in":                "1 2",
+			"examples/0.out":               "3",
+			"interactive/Main.distrib.cpp": "int main() {}",
+			"statements/es.markdown":       "Sumas",
+			"statements/images/foo.png":    "",
+			// protected
+			"solution/es.markdown": "Sumas",
+			"tests/tests.json":     "{}",
+			// private
+			"cases/0.in":           "1 2",
+			"cases/0.out":          "3",
+			"interactive/Main.cpp": "int main() {}",
+			"settings.json":        "{}",
+			"validator.cpp":        "int main() {}",
+		},
+		log,
+	)
+	if err != nil {
+		t.Fatalf("Failed to build source git tree: %v", err)
+	}
+	defer originalTree.Free()
+
+	for _, paths := range [][]string{
+		// public
+		[]string{
+			"examples/0.in",
+			"examples/0.out",
+			"interactive/Main.distrib.cpp",
+			"statements/es.markdown",
+			"statements/images/foo.png",
+		},
+		// protected
+		[]string{
+			"solution/es.markdown",
+			"tests/tests.json",
+		},
+		// private
+		[]string{
+			"cases/0.in",
+			"cases/0.out",
+			"interactive/Main.cpp",
+			"settings.json",
+			"validator.cpp",
+		},
+	} {
+		splitTree, err := SplitTree(
+			originalTree,
+			repository,
+			paths,
+			repository,
+			log,
+		)
+		if err != nil {
+			t.Fatalf("Failed to split git tree for %v: %v", paths, err)
+		}
+		defer splitTree.Free()
+
+		newPaths := make([]string, 0)
+		if err = splitTree.Walk(func(parent string, entry *git.TreeEntry) int {
+			path := path.Join(parent, entry.Name)
+			log.Debug("Considering", "path", path, "entry", *entry)
+			if entry.Type != git.ObjectBlob {
+				return 0
+			}
+			newPaths = append(newPaths, path)
+			return 0
+		}); err != nil {
+			t.Fatalf("Failed to walk the split git tree for %v: %v", paths, err)
+		}
+
+		if !reflect.DeepEqual(newPaths, paths) {
+			t.Errorf("Failed to split the tree. Expected %v got %v", paths, newPaths)
+		}
+	}
 }
 
 func TestMergeTrees(t *testing.T) {

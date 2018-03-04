@@ -5,6 +5,7 @@ import (
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -205,20 +206,62 @@ func SplitTree(
 	}
 	defer treebuilder.Free()
 
+	children := make(map[string][]string)
+
 	for _, path := range paths {
+		components := strings.SplitN(path, "/", 2)
+		if len(components) == 2 {
+			if _, ok := children[components[0]]; !ok {
+				children[components[0]] = make([]string, 0)
+			}
+			children[components[0]] = append(children[components[0]], components[1])
+			continue
+		}
+
 		originalEntry, err := originalTree.EntryByPath(path)
 		if err != nil {
 			log.Error("Error looking up original tree", "path", path, "err", err)
 			return nil, err
 		}
-		err = copyTree(originalRepository, originalEntry.Id, repository, log)
-		if err != nil {
-			log.Error("Error copying tree", "path", path, "err", err)
+		if originalEntry.Type == git.ObjectBlob {
+			err = copyBlob(originalRepository, originalEntry.Id, repository, log)
+			if err != nil {
+				return nil, err
+			}
+		} else if originalEntry.Type == git.ObjectTree {
+			err = copyTree(originalRepository, originalEntry.Id, repository, log)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err = treebuilder.Insert(path, originalEntry.Id, originalEntry.Filemode); err != nil {
+			log.Error("Error inserting entry in treebuilder", "name", path, "err", err)
 			return nil, err
 		}
+	}
 
-		if err = treebuilder.Insert(path, originalEntry.Id, 040000); err != nil {
-			log.Error("Error inserting entry in treebuilder", "name", path, "err", err)
+	for name, subpaths := range children {
+		originalEntry, err := originalTree.EntryByPath(name)
+		if err != nil {
+			log.Error("Error looking up original tree", "path", name, "err", err)
+			return nil, err
+		}
+		originalSubtree, err := originalRepository.LookupTree(originalEntry.Id)
+		if err != nil {
+			log.Error("Error looking up original tree", "path", name, "err", err)
+			return nil, err
+		}
+		defer originalSubtree.Free()
+		tree, err := SplitTree(originalSubtree, originalRepository, subpaths, repository, log)
+		if err != nil {
+			log.Error("Error creating originalSubtree", "path", name, "contents", subpaths, "err", err)
+			return nil, err
+		}
+		defer tree.Free()
+
+		log.Debug("Creating subtree", "name", name, "contents", subpaths)
+		if err = treebuilder.Insert(name, tree.Id(), originalEntry.Filemode); err != nil {
+			log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
 			return nil, err
 		}
 	}
@@ -283,18 +326,16 @@ func SplitCommit(
 
 	objectCount := 0
 	var walkErr error
-	if err := originalTree.Walk(func(path string, entry *git.TreeEntry) int {
+	if err := originalTree.Walk(func(parent string, entry *git.TreeEntry) int {
 		objectCount++
 		if objectCount > ObjectLimit {
 			walkErr = ErrObjectLimitExceeded
 			return -1
 		}
+		path := path.Join(parent, entry.Name)
 		log.Debug("Considering", "path", path, "entry", *entry)
 		for i, description := range descriptions {
 			if description.ContainsPath(path) {
-				if strings.HasSuffix(path, "/") {
-					path = path[:len(path)-1]
-				}
 				log.Debug("Found a match for a path", "path", path, "entry", *entry, "description", description)
 				treePaths[i] = append(treePaths[i], path)
 				break

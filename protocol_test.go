@@ -637,13 +637,13 @@ func TestHandlePushPreprocess(t *testing.T) {
 				[]SplitCommitDescription{
 					SplitCommitDescription{
 						PathRegexps: []*regexp.Regexp{
-							regexp.MustCompile("^cases/$"),
+							regexp.MustCompile("^cases$"),
 						},
 						ReferenceName: "refs/heads/private",
 					},
 					SplitCommitDescription{
 						PathRegexps: []*regexp.Regexp{
-							regexp.MustCompile("^statements/$"),
+							regexp.MustCompile("^statements$"),
 						},
 						ReferenceName: "refs/heads/public",
 					},
