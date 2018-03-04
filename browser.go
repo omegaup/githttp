@@ -174,6 +174,7 @@ func handleRefs(
 	if err != nil {
 		return nil, err
 	}
+	defer it.Free()
 
 	result := make(RefsResult)
 

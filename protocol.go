@@ -2,6 +2,7 @@ package githttp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
@@ -580,6 +581,7 @@ func handlePrePush(
 // '/git-receive-pack' URL). This performs validations on the uploaded packfile
 // and commits the change if it is allowed.
 func handlePush(
+	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
 	updateCallback UpdateCallback,
@@ -705,7 +707,14 @@ func handlePush(
 					command.status = "restricted-ref"
 				} else {
 					parentCommit := commit.Parent(0)
-					if err = updateCallback(repository, level, command, parentCommit, commit); err != nil {
+					if err = updateCallback(
+						ctx,
+						repository,
+						level,
+						command,
+						parentCommit,
+						commit,
+					); err != nil {
 						log.Error("Update validation failed", "command", command, "err", err)
 						command.status = err.Error()
 					}
@@ -727,6 +736,7 @@ func handlePush(
 	originalCommands := commands
 	if !failed {
 		packPath, commands, err = preprocessCallback(
+			ctx,
 			repository,
 			tmpDir,
 			packPath,

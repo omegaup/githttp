@@ -1,6 +1,7 @@
 package githttp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
@@ -84,6 +85,7 @@ const (
 // AuthorizationCallback is invoked by GitServer when a user requests to
 // perform an action.
 type AuthorizationCallback func(
+	ctx context.Context,
 	w http.ResponseWriter,
 	r *http.Request,
 	repositoryName string,
@@ -91,6 +93,7 @@ type AuthorizationCallback func(
 ) AuthorizationLevel
 
 func noopAuthorizationCallback(
+	ctx context.Context,
 	w http.ResponseWriter,
 	r *http.Request,
 	repositoryName string,
@@ -102,6 +105,7 @@ func noopAuthorizationCallback(
 // UpdateCallback is invoked by GitServer when a user attempts to update a
 // repository. It returns an error if the update request is invalid.
 type UpdateCallback func(
+	ctx context.Context,
 	repository *git.Repository,
 	level AuthorizationLevel,
 	command *GitCommand,
@@ -109,6 +113,7 @@ type UpdateCallback func(
 ) error
 
 func noopUpdateCallback(
+	ctx context.Context,
 	repository *git.Repository,
 	level AuthorizationLevel,
 	command *GitCommand,
@@ -124,6 +129,7 @@ func noopUpdateCallback(
 // afterwards. It returns the path of the new packfile, a new list of commands,
 // and an error in case the operation failed.
 type PreprocessCallback func(
+	ctx context.Context,
 	repository *git.Repository,
 	tmpDir string,
 	packPath string,
@@ -131,6 +137,7 @@ type PreprocessCallback func(
 ) (string, []*GitCommand, error)
 
 func noopPreprocessCallback(
+	ctx context.Context,
 	repository *git.Repository,
 	tmpDir string,
 	packPath string,
@@ -181,6 +188,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+	ctx := r.Context()
 
 	repositoryPath := path.Join(h.rootPath, fmt.Sprintf("%s.git", repositoryName))
 	h.log.Info(
@@ -197,7 +205,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serviceName := relativeURL.Query().Get("service")
 	if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-upload-pack" {
-		level := h.authCallback(w, r, repositoryName, OperationPull)
+		level := h.authCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -209,7 +217,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-upload-pack" {
-		level := h.authCallback(w, r, repositoryName, OperationPull)
+		level := h.authCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -222,7 +230,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-receive-pack" {
-		level := h.authCallback(w, r, repositoryName, OperationPush)
+		level := h.authCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -237,7 +245,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-receive-pack" {
-		level := h.authCallback(w, r, repositoryName, OperationPush)
+		level := h.authCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -247,12 +255,21 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePush(repositoryPath, level, h.updateCallback, h.preprocessCallback, h.log, r.Body, w); err != nil {
+		if err := handlePush(
+			ctx,
+			repositoryPath,
+			level,
+			h.updateCallback,
+			h.preprocessCallback,
+			h.log,
+			r.Body,
+			w,
+		); err != nil {
 			writeHeader(w, err)
 			return
 		}
 	} else if r.Method == "GET" && h.enableBrowse {
-		level := h.authCallback(w, r, repositoryName, OperationBrowse)
+		level := h.authCallback(ctx, w, r, repositoryName, OperationBrowse)
 		if level == AuthorizationDenied {
 			return
 		}

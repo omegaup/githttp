@@ -2,6 +2,7 @@ package githttp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
@@ -545,6 +546,7 @@ func TestHandlePushUnborn(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowed,
 		noopUpdateCallback,
@@ -625,10 +627,12 @@ func TestHandlePushPreprocess(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowed,
 		noopUpdateCallback,
 		func(
+			ctx context.Context,
 			originalRepository *git.Repository,
 			tmpDir string,
 			originalPackPath string,
@@ -767,9 +771,11 @@ func TestHandlePushCallback(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowed,
 		func(
+			ctx context.Context,
 			repository *git.Repository,
 			level AuthorizationLevel,
 			command *GitCommand,
@@ -831,6 +837,7 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowed,
 		noopUpdateCallback,
@@ -888,6 +895,7 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
 		noopUpdateCallback,
@@ -945,6 +953,7 @@ func TestHandlePushMerge(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
 		noopUpdateCallback,
@@ -1002,6 +1011,7 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
 		noopUpdateCallback,
@@ -1059,6 +1069,7 @@ func TestHandleNonFastForward(t *testing.T) {
 
 	log := log15.New()
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
 		noopUpdateCallback,
@@ -1099,6 +1110,7 @@ func TestHandleNonFastForward(t *testing.T) {
 	}
 
 	err = handlePush(
+		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
 		noopUpdateCallback,
