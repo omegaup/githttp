@@ -16,6 +16,10 @@ import (
 
 const (
 	symrefHeadPrefix = "symref=HEAD:"
+
+	// revWalkLimit is the maximum number of commits that will be considered to
+	// determine whether this is a fast-forward push.
+	revWalkLimit = 10000
 )
 
 var (
@@ -160,23 +164,53 @@ func DiscoverReferences(r io.Reader) (*ReferenceDiscovery, error) {
 	return discovery, nil
 }
 
-// validateParent returns whether the commit's parent is the current HEAD of
-// the branch (or it has no parent if this is an unborn branch).
-func validateParent(
+// validateFastForward returns whether there is a chain of left parent commits
+// that lead to:
+// * The target of the reference (if it exists).
+// * The commit pointed to by HEAD (if it is an unborn branch, and it exists).
+// * An unborn branch if there is no HEAD.
+func validateFastForward(
+	repository *git.Repository,
 	commit *git.Commit,
+	head *git.Reference,
 	ref *git.Reference,
 ) bool {
+	var target *git.Oid
 	if ref == nil {
-		// This is a bare repository. This should be the initial commit, and
-		// nothing else.
-		return commit.ParentCount() == 0
+		// This is an unborn branch.
+		if head == nil {
+			// And this is the first commit.
+			return true
+		}
+		target = head.Target()
+	} else {
+		target = ref.Target()
 	}
-	// This commit must have exactly one parent: the branch's current HEAD.
+	// There should be a chain of first parents that lead to the branch's current
+	// HEAD.
 	parentID := commit.ParentId(0)
-	if parentID == nil {
-		return false
+	revWalkCount := 1
+	for parentID != nil {
+		revWalkCount++
+		if revWalkCount > revWalkLimit {
+			// Bail out, this check was too expensive.
+			return false
+		}
+		if parentID.Equal(target) {
+			return true
+		}
+		parentCommit, err := repository.LookupCommit(parentID)
+		if err != nil {
+			return false
+		}
+		if commit.ParentCount() == 0 {
+			parentID = nil
+		} else {
+			parentID = parentCommit.ParentId(0)
+		}
+		parentCommit.Free()
 	}
-	return parentID.Equal(ref.Target())
+	return false
 }
 
 // isRestrictedRef returns whether a ref name is restricted. Only
@@ -568,6 +602,15 @@ func handlePush(
 	}
 	defer odb.Free()
 
+	head, err := repository.Head()
+	if err != nil && !git.IsErrorCode(err, git.ErrUnbornBranch) {
+		log.Error("Error reading head", "err", err)
+		return err
+	}
+	if head != nil {
+		defer head.Free()
+	}
+
 	writepack, err := odb.NewWritePack(nil)
 	if err != nil {
 		log.Error("Error creating writepack", "err", err)
@@ -656,10 +699,8 @@ func handlePush(
 				command.status = "unknown-commit"
 			} else {
 				command.logMessage = commit.Summary()
-				if commit.ParentCount() > 1 {
-					command.status = "merge-unallowed"
-				} else if !validateParent(commit, command.Reference) {
-					command.status = "multiple-updates-unallowed"
+				if !validateFastForward(repository, commit, head, command.Reference) {
+					command.status = "non-fast-forward"
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
 					command.status = "restricted-ref"
 				} else {

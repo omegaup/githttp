@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	// ObjectLimit is the maximum number of objects a tree can contain.
-	ObjectLimit = 10000
+	// objectLimit is the maximum number of objects a tree can contain.
+	objectLimit = 10000
 )
 
 var (
@@ -328,7 +328,7 @@ func SplitCommit(
 	var walkErr error
 	if err := originalTree.Walk(func(parent string, entry *git.TreeEntry) int {
 		objectCount++
-		if objectCount > ObjectLimit {
+		if objectCount > objectLimit {
 			walkErr = ErrObjectLimitExceeded
 			return -1
 		}

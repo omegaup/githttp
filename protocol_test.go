@@ -180,11 +180,13 @@ func TestHandlePullUnknownRef(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("want 0000000000000000000000000000000000000000 thin-pack ofs-delta agent=git/2.14.1\n"))
-	pw.Flush()
-	pw.WritePktLine([]byte("done"))
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("want 0000000000000000000000000000000000000000 thin-pack ofs-delta agent=git/2.14.1\n"))
+		pw.Flush()
+		pw.WritePktLine([]byte("done"))
+	}
 
 	log := log15.New()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
@@ -211,11 +213,13 @@ func TestHandleClone(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
-	pw.Flush()
-	pw.WritePktLine([]byte("done"))
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
+		pw.Flush()
+		pw.WritePktLine([]byte("done"))
+	}
 
 	log := log15.New()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
@@ -277,12 +281,14 @@ func TestHandlePull(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
-	pw.Flush()
-	pw.WritePktLine([]byte("have 88aa3454adb27c3c343ab57564d962a0a7f6a3c1\n"))
-	pw.WritePktLine([]byte("done"))
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
+		pw.Flush()
+		pw.WritePktLine([]byte("have 88aa3454adb27c3c343ab57564d962a0a7f6a3c1\n"))
+		pw.WritePktLine([]byte("done"))
+	}
 
 	log := log15.New()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
@@ -340,11 +346,13 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
-	pw.WritePktLine([]byte("deepen 1"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
+		pw.WritePktLine([]byte("deepen 1"))
+		pw.Flush()
+	}
 
 	log := log15.New()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
@@ -373,12 +381,14 @@ func TestHandleCloneShallowClone(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
-	pw.WritePktLine([]byte("deepen 1"))
-	pw.Flush()
-	pw.WritePktLine([]byte("done"))
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
+		pw.WritePktLine([]byte("deepen 1"))
+		pw.Flush()
+		pw.WritePktLine([]byte("done"))
+	}
 
 	log := log15.New()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
@@ -439,14 +449,16 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
-	pw.WritePktLine([]byte("shallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"))
-	pw.WritePktLine([]byte("deepen 2147483647"))
-	pw.Flush()
-	pw.WritePktLine([]byte("have 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"))
-	pw.WritePktLine([]byte("done"))
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("want 6d2439d2e920ba92d8e485e75d1b740ae51b609a thin-pack ofs-delta agent=git/2.14.1\n"))
+		pw.WritePktLine([]byte("shallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"))
+		pw.WritePktLine([]byte("deepen 2147483647"))
+		pw.Flush()
+		pw.WritePktLine([]byte("have 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"))
+		pw.WritePktLine([]byte("done"))
+	}
 
 	log := log15.New()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
@@ -515,10 +527,12 @@ func TestHandlePushUnborn(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
+		pw.Flush()
+	}
 
 	f, err := os.Open(packFilename)
 	if err != nil {
@@ -593,18 +607,20 @@ func TestHandlePushPreprocess(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 f460ceba1a6ac94a074efe17011866b93fd51d39 refs/heads/master\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 f460ceba1a6ac94a074efe17011866b93fd51d39 refs/heads/master\x00report-status\n"))
+		pw.Flush()
 
-	f, err := os.Open("testdata/sumas.pack")
-	if err != nil {
-		t.Fatalf("Failed to open the packfile: %v", err)
-	}
-	defer f.Close()
-	if _, err = io.Copy(&inBuf, f); err != nil {
-		t.Fatalf("Failed to copy the packfile: %v", err)
+		f, err := os.Open("testdata/sumas.pack")
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
 	}
 
 	log := log15.New()
@@ -733,18 +749,20 @@ func TestHandlePushCallback(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
+		pw.Flush()
 
-	f, err := os.Open(packFilename)
-	if err != nil {
-		t.Fatalf("Failed to open the packfile: %v", err)
-	}
-	defer f.Close()
-	if _, err = io.Copy(&inBuf, f); err != nil {
-		t.Fatalf("Failed to copy the packfile: %v", err)
+		f, err := os.Open(packFilename)
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
 	}
 
 	log := log15.New()
@@ -794,18 +812,20 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 0101010101010101010101010101010101010101 refs/heads/master\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 0101010101010101010101010101010101010101 refs/heads/master\x00report-status\n"))
+		pw.Flush()
 
-	f, err := os.Open(packFilename)
-	if err != nil {
-		t.Fatalf("Failed to open the packfile: %v", err)
-	}
-	defer f.Close()
-	if _, err = io.Copy(&inBuf, f); err != nil {
-		t.Fatalf("Failed to copy the packfile: %v", err)
+		f, err := os.Open(packFilename)
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
 	}
 
 	log := log15.New()
@@ -849,18 +869,20 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/meta/config\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/meta/config\x00report-status\n"))
+		pw.Flush()
 
-	f, err := os.Open(packFilename)
-	if err != nil {
-		t.Fatalf("Failed to open the packfile: %v", err)
-	}
-	defer f.Close()
-	if _, err = io.Copy(&inBuf, f); err != nil {
-		t.Fatalf("Failed to copy the packfile: %v", err)
+		f, err := os.Open(packFilename)
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
 	}
 
 	log := log15.New()
@@ -904,18 +926,20 @@ func TestHandlePushMerge(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 6d4fad66ff6271a19aee1bfab1172b34ee05f43f refs/heads/master\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 6d4fad66ff6271a19aee1bfab1172b34ee05f43f refs/heads/master\x00report-status\n"))
+		pw.Flush()
 
-	f, err := os.Open("testdata/pack-merge-commit.pack")
-	if err != nil {
-		t.Fatalf("Failed to open the packfile: %v", err)
-	}
-	defer f.Close()
-	if _, err = io.Copy(&inBuf, f); err != nil {
-		t.Fatalf("Failed to copy the packfile: %v", err)
+		f, err := os.Open("testdata/pack-merge-commit.pack")
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
 	}
 
 	log := log15.New()
@@ -936,7 +960,7 @@ func TestHandlePushMerge(t *testing.T) {
 		t,
 		[]expectedPktLine{
 			{nil, "unpack ok\n"},
-			{nil, "ng refs/heads/master merge-unallowed\n"},
+			{nil, "ok refs/heads/master\n"},
 			{ErrFlush, ""},
 		},
 		&outBuf,
@@ -959,18 +983,20 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		repo.Free()
 	}
 
-	// Taken from git 2.14.1
-	pw := NewPktLineWriter(&inBuf)
-	pw.WritePktLine([]byte("0000000000000000000000000000000000000000 55260393bc770a8488b305a5f8e47ab6540f49e8 refs/heads/master\x00report-status\n"))
-	pw.Flush()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 55260393bc770a8488b305a5f8e47ab6540f49e8 refs/heads/master\x00report-status\n"))
+		pw.Flush()
 
-	f, err := os.Open("testdata/pack-multiple-updates.pack")
-	if err != nil {
-		t.Fatalf("Failed to open the packfile: %v", err)
-	}
-	defer f.Close()
-	if _, err = io.Copy(&inBuf, f); err != nil {
-		t.Fatalf("Failed to copy the packfile: %v", err)
+		f, err := os.Open("testdata/pack-multiple-updates.pack")
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
 	}
 
 	log := log15.New()
@@ -991,7 +1017,103 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		t,
 		[]expectedPktLine{
 			{nil, "unpack ok\n"},
-			{nil, "ng refs/heads/master multiple-updates-unallowed\n"},
+			{nil, "ok refs/heads/master\n"},
+			{ErrFlush, ""},
+		},
+		&outBuf,
+	)
+}
+
+func TestHandleNonFastForward(t *testing.T) {
+	var inBuf, outBuf bytes.Buffer
+	dir, err := ioutil.TempDir("", "protocol_test")
+	if err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	{
+		repo, err := git.InitRepository(dir, true)
+		if err != nil {
+			t.Fatalf("Failed to initialize git repository: %v", err)
+		}
+		repo.Free()
+	}
+
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 55260393bc770a8488b305a5f8e47ab6540f49e8 refs/heads/master\x00report-status\n"))
+		pw.Flush()
+
+		f, err := os.Open("testdata/pack-multiple-updates.pack")
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
+	}
+
+	log := log15.New()
+	err = handlePush(
+		dir,
+		AuthorizationAllowedRestricted,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
+	if err != nil {
+		t.Fatalf("Failed to push: %v", err)
+	}
+	comparePktLineResponse(
+		t,
+		[]expectedPktLine{
+			{nil, "unpack ok\n"},
+			{nil, "ok refs/heads/master\n"},
+			{ErrFlush, ""},
+		},
+		&outBuf,
+	)
+
+	inBuf.Reset()
+	outBuf.Reset()
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("55260393bc770a8488b305a5f8e47ab6540f49e8 6d4fad66ff6271a19aee1bfab1172b34ee05f43f refs/heads/master\x00report-status\n"))
+		pw.Flush()
+
+		f, err := os.Open("testdata/pack-merge-commit.pack")
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
+	}
+
+	err = handlePush(
+		dir,
+		AuthorizationAllowedRestricted,
+		noopUpdateCallback,
+		noopPreprocessCallback,
+		log,
+		&inBuf,
+		&outBuf,
+	)
+	if err != nil {
+		t.Fatalf("Failed to push: %v", err)
+	}
+	comparePktLineResponse(
+		t,
+		[]expectedPktLine{
+			{nil, "unpack ok\n"},
+			{nil, "ng refs/heads/master non-fast-forward\n"},
 			{ErrFlush, ""},
 		},
 		&outBuf,
