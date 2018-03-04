@@ -592,3 +592,64 @@ func SpliceCommit(
 
 	return newCommands, nil
 }
+
+// BuildTree recursively builds a tree based on a static map of paths and file
+// contents.
+func BuildTree(
+	repository *git.Repository,
+	files map[string]string,
+	log log15.Logger,
+) (*git.Tree, error) {
+	treebuilder, err := repository.TreeBuilder()
+	if err != nil {
+		log.Error("Error creating treebuilder", "err", err)
+		return nil, err
+	}
+	defer treebuilder.Free()
+
+	children := make(map[string]map[string]string)
+
+	for name, contents := range files {
+		components := strings.SplitN(name, "/", 2)
+		if len(components) == 1 {
+			oid, err := repository.CreateBlobFromBuffer([]byte(contents))
+			if err != nil {
+				log.Error("Error creating blob", "path", name, "contents", contents, "err", err)
+				return nil, err
+			}
+			log.Debug("Creating blob", "path", name, "contents", contents, "id", oid)
+			if err = treebuilder.Insert(name, oid, 0100644); err != nil {
+				log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
+				return nil, err
+			}
+		} else {
+			if _, ok := children[components[0]]; !ok {
+				children[components[0]] = make(map[string]string)
+			}
+			children[components[0]][components[1]] = contents
+		}
+	}
+
+	for name, subfiles := range children {
+		tree, err := BuildTree(repository, subfiles, log)
+		if err != nil {
+			log.Error("Error creating subtree", "path", name, "contents", subfiles, "err", err)
+			return nil, err
+		}
+		defer tree.Free()
+
+		if err = treebuilder.Insert(name, tree.Id(), 040000); err != nil {
+			log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
+
+			return nil, err
+		}
+	}
+
+	mergedTreeID, err := treebuilder.Write()
+	if err != nil {
+		log.Error("Error creating tree", "err", err)
+		return nil, err
+	}
+	log.Debug("Creating tree", "id", mergedTreeID)
+	return repository.LookupTree(mergedTreeID)
+}
