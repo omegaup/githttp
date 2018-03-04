@@ -100,7 +100,12 @@ func TestServerPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	log := log15.New()
+	if os.Getenv("PRESERVE") != "" {
+		log.Info("Preserving test directory", "path", dir)
+	} else {
+		defer os.RemoveAll(dir)
+	}
 
 	{
 		repo, err := git.InitRepository(filepath.Join(dir, "repo.git"), true)
@@ -110,7 +115,6 @@ func TestServerPush(t *testing.T) {
 		repo.Free()
 	}
 
-	log := log15.New()
 	handler := GitServer(dir, true, nil, nil, nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -152,7 +156,13 @@ func TestServerPush(t *testing.T) {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
-	cmd = exec.Command(gitcmd, "push", "--porcelain")
+	cmd = exec.Command(gitcmd, "push", "--porcelain", "-u", "origin", "HEAD:changes/initial")
+	cmd.Dir = repoDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Errorf("Failed to clone: %v %q", err, output)
+	}
+
+	cmd = exec.Command(gitcmd, "push", "--porcelain", "-u", "origin", "HEAD:master")
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
