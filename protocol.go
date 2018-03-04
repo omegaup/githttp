@@ -705,7 +705,7 @@ func handlePush(
 					command.status = "restricted-ref"
 				} else {
 					parentCommit := commit.Parent(0)
-					if err = updateCallback(repository, command, parentCommit, commit); err != nil {
+					if err = updateCallback(repository, level, command, parentCommit, commit); err != nil {
 						log.Error("Update validation failed", "command", command, "err", err)
 						command.status = err.Error()
 					}

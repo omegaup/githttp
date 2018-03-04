@@ -771,6 +771,7 @@ func TestHandlePushCallback(t *testing.T) {
 		AuthorizationAllowed,
 		func(
 			repository *git.Repository,
+			level AuthorizationLevel,
 			command *GitCommand,
 			oldCommit, newCommit *git.Commit,
 		) error {

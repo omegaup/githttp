@@ -1,6 +1,7 @@
 package githttp
 
 import (
+	"errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
@@ -23,6 +24,29 @@ const (
 
 	// OperationBrowse denotes a browse request.
 	OperationBrowse
+)
+
+var (
+	// ErrNotFound is returned if a reference is not found.
+	ErrNotFound = errors.New("not found")
+
+	// ErrDeleteDisallowed is returned when a delete operation is attempted.
+	ErrDeleteDisallowed = errors.New("delete-disallowed")
+
+	// ErrForbidden is returned if an operation is not allowed.
+	ErrForbidden = errors.New("forbidden")
+
+	// ErrInvalidRef is returned if a reference that the system does not support
+	// is attempted to be modified.
+	ErrInvalidRef = errors.New("invalid-ref")
+
+	// ErrReadOnlyRef is returned if a read-only reference is attempted to be
+	// modified.
+	ErrReadOnlyRef = errors.New("read-only")
+
+	// ErrRestrictedRef is returned if a restricted reference is attempted to be
+	// modified.
+	ErrRestrictedRef = errors.New("restricted-ref")
 )
 
 func (o GitOperation) String() string {
@@ -51,6 +75,10 @@ const (
 	// AuthorizationAllowedRestricted denotes that the operation was allowed
 	// (with restrictions).
 	AuthorizationAllowedRestricted
+
+	// AuthorizationAllowedReadOnly denotes that the operation was allowed in a
+	// read-only fashion.
+	AuthorizationAllowedReadOnly
 )
 
 // AuthorizationCallback is invoked by GitServer when a user requests to
@@ -75,12 +103,14 @@ func noopAuthorizationCallback(
 // repository. It returns an error if the update request is invalid.
 type UpdateCallback func(
 	repository *git.Repository,
+	level AuthorizationLevel,
 	command *GitCommand,
 	oldCommit, newCommit *git.Commit,
 ) error
 
 func noopUpdateCallback(
 	repository *git.Repository,
+	level AuthorizationLevel,
 	command *GitCommand,
 	oldCommit, newCommit *git.Commit,
 ) error {
@@ -196,6 +226,9 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationDenied {
 			return
 		}
+		if level == AuthorizationAllowedReadOnly {
+			writeHeader(w, ErrForbidden)
+		}
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
@@ -207,6 +240,9 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		level := h.authCallback(w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
+		}
+		if level == AuthorizationAllowedReadOnly {
+			writeHeader(w, ErrForbidden)
 		}
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-result")

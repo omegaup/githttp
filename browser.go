@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
@@ -17,11 +16,6 @@ const (
 	// BlobDisplayMaxSize is the maximum size that a blob can be in order to
 	// display it.
 	BlobDisplayMaxSize = 10 * 1024
-)
-
-var (
-	// ErrNotFound is returned if a reference is not found.
-	ErrNotFound = errors.New("not found")
 )
 
 // A RefResult represents a single reference in a git repository.
