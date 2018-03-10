@@ -90,3 +90,32 @@ func (r *PktLineReader) ReadPktLine() ([]byte, error) {
 	}
 	return data, nil
 }
+
+// PktLineResponse represents an expected entry from PktLineReader.
+type PktLineResponse struct {
+	Line string
+	Err  error
+}
+
+// ComparePktLine compares what is being read from the supplied Reader when
+// interpreted by a PktLineReader against an expected list of PktLineResponses.
+func ComparePktLineResponse(
+	r io.Reader,
+	expectedResponse []PktLineResponse,
+) ([]PktLineResponse, bool) {
+	reader := NewPktLineReader(r)
+
+	actual := make([]PktLineResponse, 0)
+	ok := true
+	for _, expected := range expectedResponse {
+		line, err := reader.ReadPktLine()
+		actual = append(actual, PktLineResponse{string(line), err})
+		if expected.Err != err {
+			ok = false
+		}
+		if expected.Err == nil && expected.Line != string(line) {
+			ok = false
+		}
+	}
+	return actual, ok
+}

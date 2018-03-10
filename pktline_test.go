@@ -6,29 +6,6 @@ import (
 	"testing"
 )
 
-type expectedPktLine struct {
-	err  error
-	line string
-}
-
-func comparePktLineResponse(t *testing.T, pktLines []expectedPktLine, r io.Reader) bool {
-	reader := NewPktLineReader(r)
-
-	success := true
-	for idx, expected := range pktLines {
-		line, err := reader.ReadPktLine()
-		if err != expected.err {
-			t.Errorf("line %d: expected err %q, got %q", idx, expected.err, err)
-			success = false
-		}
-		if err == nil && !bytes.Equal(line, []byte(expected.line)) {
-			t.Errorf("line %d: expected line %q, got %q", idx, string(expected.line), line)
-			success = false
-		}
-	}
-	return success
-}
-
 func TestPktLineWriter(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -52,14 +29,16 @@ func TestPktLineReader(t *testing.T) {
 		"0000" + // flush pkt
 		"0004")) // empty pkt
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "hello"},
-			{ErrFlush, ""},
-			{nil, ""},
-			{io.EOF, ""},
-		},
+	expected := []PktLineResponse{
+		{"hello", nil},
+		{"", ErrFlush},
+		{"", nil},
+		{"", io.EOF},
+	}
+	if actual, ok := ComparePktLineResponse(
 		buf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }

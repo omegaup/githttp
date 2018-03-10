@@ -195,14 +195,15 @@ func TestHandlePullUnknownRef(t *testing.T) {
 		t.Fatalf("Failed to clone: %v", err)
 	}
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "ERR upload-pack: not our ref 0000000000000000000000000000000000000000"},
-			{io.EOF, ""},
-		},
+	expected := []PktLineResponse{
+		{"ERR upload-pack: not our ref 0000000000000000000000000000000000000000", nil},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
 
 func TestHandleClone(t *testing.T) {
@@ -228,14 +229,14 @@ func TestHandleClone(t *testing.T) {
 		t.Fatalf("Failed to clone: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "NAK\n"},
-		},
+	expected := []PktLineResponse{
+		{"NAK\n", nil},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Fatalf("pkt-reader expected %q, got %q", expected, actual)
 	}
 
 	odb, err := git.NewOdb()
@@ -297,14 +298,14 @@ func TestHandlePull(t *testing.T) {
 		t.Fatalf("Failed to clone: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "ACK 88aa3454adb27c3c343ab57564d962a0a7f6a3c1\n"},
-		},
+	expected := []PktLineResponse{
+		{"ACK 88aa3454adb27c3c343ab57564d962a0a7f6a3c1\n", nil},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Fatalf("pkt-reader expected %q, got %q", expected, actual)
 	}
 
 	odb, err := git.NewOdb()
@@ -361,16 +362,15 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 		t.Fatalf("Failed to clone: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "shallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"},
-			{ErrFlush, ""},
-			{io.EOF, ""},
-		},
+	expected := []PktLineResponse{
+		{"shallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
 	}
 }
 
@@ -397,16 +397,16 @@ func TestHandleCloneShallowClone(t *testing.T) {
 		t.Fatalf("Failed to clone: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "shallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"},
-			{ErrFlush, ""},
-			{nil, "NAK\n"},
-		},
+	expected := []PktLineResponse{
+		{"shallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n", nil},
+		{"", ErrFlush},
+		{"NAK\n", nil},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Fatalf("pkt-reader expected %q, got %q", expected, actual)
 	}
 
 	odb, err := git.NewOdb()
@@ -467,16 +467,16 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 		t.Fatalf("Failed to clone: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unshallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"},
-			{ErrFlush, ""},
-			{nil, "ACK 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n"},
-		},
+	expected := []PktLineResponse{
+		{"unshallow 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n", nil},
+		{"", ErrFlush},
+		{"ACK 6d2439d2e920ba92d8e485e75d1b740ae51b609a\n", nil},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Fatalf("pkt-reader expected %q, got %q", expected, actual)
 	}
 
 	odb, err := git.NewOdb()
@@ -559,16 +559,16 @@ func TestHandlePushUnborn(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ok refs/heads/master\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ok refs/heads/master\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Fatalf("pkt-reader expected %q, got %q", expected, actual)
 	}
 
 	var buf bytes.Buffer
@@ -701,16 +701,16 @@ func TestHandlePushPreprocess(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	if !comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ok refs/heads/master\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ok refs/heads/master\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	) {
-		return
+		expected,
+	); !ok {
+		t.Fatalf("pkt-reader expected %q, got %q", expected, actual)
 	}
 
 	var buf bytes.Buffer
@@ -792,15 +792,17 @@ func TestHandlePushCallback(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ng refs/heads/master go away\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ng refs/heads/master go away\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
 
 func TestHandlePushUnknownCommit(t *testing.T) {
@@ -850,15 +852,17 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ng refs/heads/master unknown-commit\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ng refs/heads/master unknown-commit\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
 
 func TestHandlePushRestrictedRef(t *testing.T) {
@@ -908,15 +912,17 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ng refs/meta/config restricted-ref\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ng refs/meta/config restricted-ref\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
 
 func TestHandlePushMerge(t *testing.T) {
@@ -966,15 +972,17 @@ func TestHandlePushMerge(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ok refs/heads/master\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ok refs/heads/master\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
 
 func TestHandlePushMultipleCommits(t *testing.T) {
@@ -1024,15 +1032,17 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		t.Fatalf("Failed to push: %v", err)
 	}
 
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ok refs/heads/master\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ok refs/heads/master\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
 
 func TestHandleNonFastForward(t *testing.T) {
@@ -1081,15 +1091,17 @@ func TestHandleNonFastForward(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ok refs/heads/master\n"},
-			{ErrFlush, ""},
-		},
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ok refs/heads/master\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 
 	inBuf.Reset()
 	outBuf.Reset()
@@ -1122,13 +1134,15 @@ func TestHandleNonFastForward(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to push: %v", err)
 	}
-	comparePktLineResponse(
-		t,
-		[]expectedPktLine{
-			{nil, "unpack ok\n"},
-			{nil, "ng refs/heads/master non-fast-forward\n"},
-			{ErrFlush, ""},
-		},
+	expected = []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ng refs/heads/master non-fast-forward\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
 		&outBuf,
-	)
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
 }
