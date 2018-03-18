@@ -173,20 +173,13 @@ func DiscoverReferences(r io.Reader) (*ReferenceDiscovery, error) {
 func validateFastForward(
 	repository *git.Repository,
 	commit *git.Commit,
-	head *git.Reference,
 	ref *git.Reference,
 ) bool {
-	var target *git.Oid
 	if ref == nil {
 		// This is an unborn branch.
-		if head == nil {
-			// And this is the first commit.
-			return true
-		}
-		target = head.Target()
-	} else {
-		target = ref.Target()
+		return true
 	}
+	target := ref.Target()
 	// There should be a chain of first parents that lead to the branch's current
 	// HEAD.
 	parentID := commit.ParentId(0)
@@ -604,15 +597,6 @@ func handlePush(
 	}
 	defer odb.Free()
 
-	head, err := repository.Head()
-	if err != nil && !git.IsErrorCode(err, git.ErrUnbornBranch) {
-		log.Error("Error reading head", "err", err)
-		return err
-	}
-	if head != nil {
-		defer head.Free()
-	}
-
 	writepack, err := odb.NewWritePack(nil)
 	if err != nil {
 		log.Error("Error creating writepack", "err", err)
@@ -701,7 +685,7 @@ func handlePush(
 				command.status = "unknown-commit"
 			} else {
 				command.logMessage = commit.Summary()
-				if !validateFastForward(repository, commit, head, command.Reference) {
+				if !validateFastForward(repository, commit, command.Reference) {
 					command.status = "non-fast-forward"
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
 					command.status = "restricted-ref"
