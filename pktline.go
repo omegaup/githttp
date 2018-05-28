@@ -97,8 +97,9 @@ type PktLineResponse struct {
 	Err  error
 }
 
-// ComparePktLine compares what is being read from the supplied Reader when
-// interpreted by a PktLineReader against an expected list of PktLineResponses.
+// ComparePktLineResponse compares what is being read from the supplied Reader
+// when interpreted by a PktLineReader against an expected list of
+// PktLineResponses.
 func ComparePktLineResponse(
 	r io.Reader,
 	expectedResponse []PktLineResponse,

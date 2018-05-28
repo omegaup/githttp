@@ -3,10 +3,12 @@ package githttp
 import (
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -27,22 +29,22 @@ func TestSplitTrees(t *testing.T) {
 
 	originalTree, err := BuildTree(
 		repository,
-		map[string]string{
+		map[string]io.Reader{
 			// public
-			"examples/0.in":                "1 2",
-			"examples/0.out":               "3",
-			"interactive/Main.distrib.cpp": "int main() {}",
-			"statements/es.markdown":       "Sumas",
-			"statements/images/foo.png":    "",
+			"examples/0.in":                strings.NewReader("1 2"),
+			"examples/0.out":               strings.NewReader("3"),
+			"interactive/Main.distrib.cpp": strings.NewReader("int main() {}"),
+			"statements/es.markdown":       strings.NewReader("Sumas"),
+			"statements/images/foo.png":    strings.NewReader(""),
 			// protected
-			"solution/es.markdown": "Sumas",
-			"tests/tests.json":     "{}",
+			"solution/es.markdown": strings.NewReader("Sumas"),
+			"tests/tests.json":     strings.NewReader("{}"),
 			// private
-			"cases/0.in":           "1 2",
-			"cases/0.out":          "3",
-			"interactive/Main.cpp": "int main() {}",
-			"settings.json":        "{}",
-			"validator.cpp":        "int main() {}",
+			"cases/0.in":           strings.NewReader("1 2"),
+			"cases/0.out":          strings.NewReader("3"),
+			"interactive/Main.cpp": strings.NewReader("int main() {}"),
+			"settings.json":        strings.NewReader("{}"),
+			"validator.cpp":        strings.NewReader("int main() {}"),
 		},
 		log,
 	)
@@ -121,76 +123,76 @@ func TestMergeTrees(t *testing.T) {
 	log := log15.New()
 
 	type testEntry struct {
-		trees  []map[string]string
-		result map[string]string
+		trees  []map[string]io.Reader
+		result map[string]io.Reader
 	}
 
 	for _, entry := range []testEntry{
 		// Simple case.
 		testEntry{
-			trees: []map[string]string{
-				map[string]string{
-					"cases/0.in":  "1 2",
-					"cases/0.out": "3",
+			trees: []map[string]io.Reader{
+				map[string]io.Reader{
+					"cases/0.in":  strings.NewReader("1 2"),
+					"cases/0.out": strings.NewReader("3"),
 				},
-				map[string]string{
-					"statements/es.markdown": "Sumas",
+				map[string]io.Reader{
+					"statements/es.markdown": strings.NewReader("Sumas"),
 				},
 			},
-			result: map[string]string{
-				"cases/0.in":             "1 2",
-				"cases/0.out":            "3",
-				"statements/es.markdown": "Sumas",
+			result: map[string]io.Reader{
+				"cases/0.in":             strings.NewReader("1 2"),
+				"cases/0.out":            strings.NewReader("3"),
+				"statements/es.markdown": strings.NewReader("Sumas"),
 			},
 		},
 		// Merging three trees.
 		testEntry{
-			trees: []map[string]string{
-				map[string]string{
-					"cases/0.in": "1 2",
+			trees: []map[string]io.Reader{
+				map[string]io.Reader{
+					"cases/0.in": strings.NewReader("1 2"),
 				},
-				map[string]string{
-					"cases/0.out": "3",
+				map[string]io.Reader{
+					"cases/0.out": strings.NewReader("3"),
 				},
-				map[string]string{
-					"statements/es.markdown": "Sumas",
+				map[string]io.Reader{
+					"statements/es.markdown": strings.NewReader("Sumas"),
 				},
 			},
-			result: map[string]string{
-				"cases/0.in":             "1 2",
-				"cases/0.out":            "3",
-				"statements/es.markdown": "Sumas",
+			result: map[string]io.Reader{
+				"cases/0.in":             strings.NewReader("1 2"),
+				"cases/0.out":            strings.NewReader("3"),
+				"statements/es.markdown": strings.NewReader("Sumas"),
 			},
 		},
 		// Merging a subtree.
 		testEntry{
-			trees: []map[string]string{
-				map[string]string{
-					"cases/0.in": "1 2",
+			trees: []map[string]io.Reader{
+				map[string]io.Reader{
+					"cases/0.in": strings.NewReader("1 2"),
 				},
-				map[string]string{
-					"cases/0.out": "3",
+				map[string]io.Reader{
+					"cases/0.out": strings.NewReader("3"),
 				},
 			},
-			result: map[string]string{
-				"cases/0.in":  "1 2",
-				"cases/0.out": "3",
+			result: map[string]io.Reader{
+				"cases/0.in":  strings.NewReader("1 2"),
+				"cases/0.out": strings.NewReader("3"),
 			},
 		},
 		// One of the files is overwritten / ignored.
 		testEntry{
-			trees: []map[string]string{
-				map[string]string{
-					"cases/0.in":  "1 2",
-					"cases/0.out": "3",
+			trees: []map[string]io.Reader{
+				map[string]io.Reader{
+					"cases/0.in":  strings.NewReader("1 2"),
+					"cases/0.out": strings.NewReader("3"),
 				},
-				map[string]string{
-					"cases/0.out": "5",
+				map[string]io.Reader{
+					"cases/0.out": strings.NewReader("5"),
 				},
 			},
-			result: map[string]string{
-				"cases/0.in":  "1 2",
-				"cases/0.out": "3",
+			result: map[string]io.Reader{
+				"cases/0.in":  strings.NewReader("1 2"),
+				"cases/0.out": strings.NewReader("3"),
 			},
 		},
 	} {

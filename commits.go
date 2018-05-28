@@ -4,6 +4,8 @@ import (
 	"errors"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
@@ -597,7 +599,7 @@ func SpliceCommit(
 // contents.
 func BuildTree(
 	repository *git.Repository,
-	files map[string]string,
+	files map[string]io.Reader,
 	log log15.Logger,
 ) (*git.Tree, error) {
 	treebuilder, err := repository.TreeBuilder()
@@ -607,33 +609,38 @@ func BuildTree(
 	}
 	defer treebuilder.Free()
 
-	children := make(map[string]map[string]string)
+	children := make(map[string]map[string]io.Reader)
 
-	for name, contents := range files {
+	for name, reader := range files {
 		components := strings.SplitN(name, "/", 2)
 		if len(components) == 1 {
-			oid, err := repository.CreateBlobFromBuffer([]byte(contents))
+			contents, err := ioutil.ReadAll(reader)
 			if err != nil {
-				log.Error("Error creating blob", "path", name, "contents", contents, "err", err)
+				log.Error("Error reading contents", "path", name, "err", err)
 				return nil, err
 			}
-			log.Debug("Creating blob", "path", name, "contents", contents, "id", oid)
+			oid, err := repository.CreateBlobFromBuffer(contents)
+			if err != nil {
+				log.Error("Error creating blob", "path", name, "err", err)
+				return nil, err
+			}
+			log.Debug("Creating blob", "path", name, "len", len(contents), "id", oid)
 			if err = treebuilder.Insert(name, oid, 0100644); err != nil {
 				log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
 				return nil, err
 			}
 		} else {
 			if _, ok := children[components[0]]; !ok {
-				children[components[0]] = make(map[string]string)
+				children[components[0]] = make(map[string]io.Reader)
 			}
-			children[components[0]][components[1]] = contents
+			children[components[0]][components[1]] = reader
 		}
 	}
 
 	for name, subfiles := range children {
 		tree, err := BuildTree(repository, subfiles, log)
 		if err != nil {
-			log.Error("Error creating subtree", "path", name, "contents", subfiles, "err", err)
+			log.Error("Error creating subtree", "path", name, "subfiles", subfiles, "err", err)
 			return nil, err
 		}
 		defer tree.Free()
