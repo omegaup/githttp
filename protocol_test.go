@@ -549,8 +549,12 @@ func TestHandlePushUnborn(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -630,69 +634,73 @@ func TestHandlePushPreprocess(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		noopUpdateCallback,
-		func(
-			ctx context.Context,
-			originalRepository *git.Repository,
-			tmpDir string,
-			originalPackPath string,
-			originalCommands []*GitCommand,
-		) (string, []*GitCommand, error) {
-			if len(originalCommands) != 1 {
-				t.Fatalf("More than one command unsupported")
-			}
+		NewGitProtocol(
+			nil,
+			nil,
+			func(
+				ctx context.Context,
+				originalRepository *git.Repository,
+				tmpDir string,
+				originalPackPath string,
+				originalCommands []*GitCommand,
+			) (string, []*GitCommand, error) {
+				if len(originalCommands) != 1 {
+					t.Fatalf("More than one command unsupported")
+				}
 
-			originalCommit, err := originalRepository.LookupCommit(originalCommands[0].New)
-			if err != nil {
-				log.Error("Error looking up commit", "err", err)
-				return originalPackPath, originalCommands, err
-			}
-			defer originalCommit.Free()
+				originalCommit, err := originalRepository.LookupCommit(originalCommands[0].New)
+				if err != nil {
+					log.Error("Error looking up commit", "err", err)
+					return originalPackPath, originalCommands, err
+				}
+				defer originalCommit.Free()
 
-			newPackPath := path.Join(tmpDir, "new.pack")
-			newCommands, err := SpliceCommit(
-				originalRepository,
-				originalCommit,
-				nil,
-				[]SplitCommitDescription{
-					SplitCommitDescription{
-						PathRegexps: []*regexp.Regexp{
-							regexp.MustCompile("^cases$"),
+				newPackPath := path.Join(tmpDir, "new.pack")
+				newCommands, err := SpliceCommit(
+					originalRepository,
+					originalCommit,
+					nil,
+					[]SplitCommitDescription{
+						SplitCommitDescription{
+							PathRegexps: []*regexp.Regexp{
+								regexp.MustCompile("^cases$"),
+							},
+							ReferenceName: "refs/heads/private",
 						},
-						ReferenceName: "refs/heads/private",
-					},
-					SplitCommitDescription{
-						PathRegexps: []*regexp.Regexp{
-							regexp.MustCompile("^statements$"),
+						SplitCommitDescription{
+							PathRegexps: []*regexp.Regexp{
+								regexp.MustCompile("^statements$"),
+							},
+							ReferenceName: "refs/heads/public",
 						},
-						ReferenceName: "refs/heads/public",
 					},
-				},
-				&git.Signature{
-					Name:  "author",
-					Email: "author@test.test",
-					When:  time.Unix(0, 0),
-				},
-				&git.Signature{
-					Name:  "committer",
-					Email: "committer@test.test",
-					When:  time.Unix(0, 0),
-				},
-				"refs/heads/master",
-				nil,
-				"Reviewed-In: http://localhost/review/1/",
-				newPackPath,
-				log,
-			)
-			if err != nil {
-				log.Error("Error splicing commit", "err", err)
-				return originalPackPath, originalCommands, err
-			}
+					&git.Signature{
+						Name:  "author",
+						Email: "author@test.test",
+						When:  time.Unix(0, 0),
+					},
+					&git.Signature{
+						Name:  "committer",
+						Email: "committer@test.test",
+						When:  time.Unix(0, 0),
+					},
+					"refs/heads/master",
+					nil,
+					"Reviewed-In: http://localhost/review/1/",
+					newPackPath,
+					log,
+				)
+				if err != nil {
+					log.Error("Error splicing commit", "err", err)
+					return originalPackPath, originalCommands, err
+				}
 
-			log.Debug("Commands changed", "old commands", originalCommands, "newCommands", newCommands)
+				log.Debug("Commands changed", "old commands", originalCommands, "newCommands", newCommands)
 
-			return newPackPath, newCommands, nil
-		},
+				return newPackPath, newCommands, nil
+			},
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -774,16 +782,20 @@ func TestHandlePushCallback(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		func(
-			ctx context.Context,
-			repository *git.Repository,
-			level AuthorizationLevel,
-			command *GitCommand,
-			oldCommit, newCommit *git.Commit,
-		) error {
-			return errors.New("go away")
-		},
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			func(
+				ctx context.Context,
+				repository *git.Repository,
+				level AuthorizationLevel,
+				command *GitCommand,
+				oldCommit, newCommit *git.Commit,
+			) error {
+				return errors.New("go away")
+			},
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -842,8 +854,12 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -902,8 +918,12 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -962,8 +982,12 @@ func TestHandlePushMerge(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1022,8 +1046,12 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1082,8 +1110,12 @@ func TestHandleNonFastForward(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1125,8 +1157,12 @@ func TestHandleNonFastForward(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		noopUpdateCallback,
-		noopPreprocessCallback,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			log,
+		),
 		log,
 		&inBuf,
 		&outBuf,

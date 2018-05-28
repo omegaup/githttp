@@ -102,6 +102,156 @@ func (c *GitCommand) String() string {
 	)
 }
 
+type GitProtocol struct {
+	AuthCallback       AuthorizationCallback
+	UpdateCallback     UpdateCallback
+	PreprocessCallback PreprocessCallback
+	log                log15.Logger
+}
+
+func NewGitProtocol(
+	authCallback AuthorizationCallback,
+	updateCallback UpdateCallback,
+	preprocessCallback PreprocessCallback,
+	log log15.Logger,
+) *GitProtocol {
+	protocol := &GitProtocol{
+		AuthCallback:       authCallback,
+		UpdateCallback:     updateCallback,
+		PreprocessCallback: preprocessCallback,
+		log:                log,
+	}
+	if protocol.AuthCallback == nil {
+		protocol.AuthCallback = noopAuthorizationCallback
+	}
+
+	if protocol.UpdateCallback == nil {
+		protocol.UpdateCallback = noopUpdateCallback
+	}
+
+	if protocol.PreprocessCallback == nil {
+		protocol.PreprocessCallback = noopPreprocessCallback
+	}
+
+	return protocol
+}
+
+func (p *GitProtocol) PushPackfile(
+	ctx context.Context,
+	repository *git.Repository,
+	level AuthorizationLevel,
+	commands []*GitCommand,
+	r io.Reader,
+) (error, error) {
+	odb, err := repository.Odb()
+	if err != nil {
+		p.log.Error("Error opening git odb", "err", err)
+		return err, err
+	}
+	defer odb.Free()
+
+	writepack, err := odb.NewWritePack(nil)
+	if err != nil {
+		p.log.Error("Error creating writepack", "err", err)
+		return err, err
+	}
+	defer writepack.Free()
+
+	tmpDir, err := ioutil.TempDir("", "packfile")
+	if err != nil {
+		p.log.Error("Failed to create temp directory", "err", err)
+		return err, err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	_, packPath, err := UnpackPackfile(odb, r, tmpDir, nil)
+
+	if err != nil {
+		p.log.Error("Error unpacking", "err", err)
+		return err, err
+	}
+
+	for _, command := range commands {
+		if command.status == "" {
+			commit, err := repository.LookupCommit(command.New)
+			if err != nil {
+				command.status = "unknown-commit"
+			} else {
+				command.logMessage = commit.Summary()
+				if !validateFastForward(repository, commit, command.Reference) {
+					command.status = "non-fast-forward"
+				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
+					command.status = "restricted-ref"
+				} else {
+					parentCommit := commit.Parent(0)
+					if err = p.UpdateCallback(
+						ctx,
+						repository,
+						level,
+						command,
+						parentCommit,
+						commit,
+					); err != nil {
+						p.log.Error("Update validation failed", "command", command, "err", err)
+						command.status = err.Error()
+					} else {
+						command.status = "ok"
+					}
+					if parentCommit != nil {
+						parentCommit.Free()
+					}
+				}
+				commit.Free()
+			}
+		}
+		if command.status == "ok" {
+			p.log.Info("Ref successfully updated", "command", command)
+		} else {
+			p.log.Error("Command status not ok", "status", command.status)
+			return ErrBadRequest, nil
+		}
+	}
+
+	originalCommands := commands
+	packPath, commands, err = p.PreprocessCallback(
+		ctx,
+		repository,
+		tmpDir,
+		packPath,
+		originalCommands,
+	)
+	if err != nil {
+		p.log.Error("Preprocessing failed", "err", err)
+		return ErrBadRequest, nil
+	}
+
+	err = commitPackfile(packPath, writepack)
+	if err != nil {
+		p.log.Error("Error committing packfile", "err", err)
+		return err, nil
+	}
+
+	for _, command := range commands {
+		_, err = repository.References.Create(
+			command.ReferenceName,
+			command.New,
+			true,
+			command.logMessage,
+		)
+		if err != nil {
+			p.log.Error(
+				"Error updating reference",
+				"reference", command.ReferenceName,
+				"err", err,
+			)
+			command.status = err.Error()
+			return ErrBadRequest, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // A ReferenceDiscovery represents the result of the reference discovery
 // negotiation in git's pack protocol.
 type ReferenceDiscovery struct {
@@ -577,8 +727,7 @@ func handlePush(
 	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
-	updateCallback UpdateCallback,
-	preprocessCallback PreprocessCallback,
+	protocol *GitProtocol,
 	log log15.Logger,
 	r io.Reader,
 	w io.Writer,
@@ -590,30 +739,8 @@ func handlePush(
 	}
 	defer repository.Free()
 
-	odb, err := repository.Odb()
-	if err != nil {
-		log.Error("Error opening git odb", "err", err)
-		return err
-	}
-	defer odb.Free()
-
-	writepack, err := odb.NewWritePack(nil)
-	if err != nil {
-		log.Error("Error creating writepack", "err", err)
-		return err
-	}
-	defer writepack.Free()
-
-	tmpDir, err := ioutil.TempDir("", "packfile")
-	if err != nil {
-		log.Error("Failed to create temp directory", "err", err)
-		return err
-	}
-	defer os.RemoveAll(tmpDir)
-
 	pr := NewPktLineReader(r)
 	reportStatus := false
-	failed := false
 	commands := make([]*GitCommand, 0)
 	references := make(map[string]*git.Reference)
 	for {
@@ -645,7 +772,6 @@ func handlePush(
 		}
 		command := &GitCommand{
 			ReferenceName: tokens[2],
-			status:        "ok",
 		}
 		if _, ok := references[command.ReferenceName]; !ok {
 			ref, err := repository.References.Lookup(command.ReferenceName)
@@ -669,120 +795,47 @@ func handlePush(
 
 	log.Debug("Commands", "commands", commands)
 
-	_, packPath, err := UnpackPackfile(odb, r, tmpDir, nil)
-
-	unpackStatus := "ok"
-	if err != nil {
-		log.Error("Error unpacking", "err", err)
-		failed = true
-		unpackStatus = err.Error()
-	}
-
-	for _, command := range commands {
-		if command.status == "ok" {
-			commit, err := repository.LookupCommit(command.New)
-			if err != nil {
-				command.status = "unknown-commit"
-			} else {
-				command.logMessage = commit.Summary()
-				if !validateFastForward(repository, commit, command.Reference) {
-					command.status = "non-fast-forward"
-				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
-					command.status = "restricted-ref"
-				} else {
-					parentCommit := commit.Parent(0)
-					if err = updateCallback(
-						ctx,
-						repository,
-						level,
-						command,
-						parentCommit,
-						commit,
-					); err != nil {
-						log.Error("Update validation failed", "command", command, "err", err)
-						command.status = err.Error()
-					}
-					if parentCommit != nil {
-						parentCommit.Free()
-					}
-				}
-				commit.Free()
-			}
-		}
-		if command.status == "ok" {
-			log.Info("Ref successfully updated", "command", command)
-		} else {
-			log.Error("Command status not ok", "status", command.status)
-			failed = true
-		}
-	}
-
-	originalCommands := commands
-	if !failed {
-		packPath, commands, err = preprocessCallback(
-			ctx,
-			repository,
-			tmpDir,
-			packPath,
-			originalCommands,
-		)
-		if err != nil {
-			log.Error("Preprocessing failed", "err", err)
-			failed = true
-		}
-	}
-
-	if !failed {
-		err = commitPackfile(packPath, writepack)
-		if err != nil {
-			log.Error("Error committing packfile", "err", err)
-			failed = true
-			unpackStatus = err.Error()
-		}
-	}
-
-	if !failed {
-		for _, command := range commands {
-			_, err = repository.References.Create(
-				command.ReferenceName,
-				command.New,
-				true,
-				command.logMessage,
-			)
-			if err != nil {
-				log.Error(
-					"Error updating reference",
-					"reference", command.ReferenceName,
-					"err", err,
-				)
-				failed = true
-				command.status = err.Error()
-			}
-		}
-	}
-
-	if failed && !reportStatus {
-		return ErrBadRequest
-	}
-
+	err, unpackErr := protocol.PushPackfile(
+		ctx,
+		repository,
+		level,
+		commands,
+		r,
+	)
 	if !reportStatus {
-		return nil
+		return err
 	}
+
 	pw := NewPktLineWriter(w)
 	defer pw.Flush()
 
-	pw.WritePktLine([]byte(fmt.Sprintf("unpack %s\n", unpackStatus)))
-	for _, command := range originalCommands {
-		if command.status == "ok" {
-			pw.WritePktLine([]byte(fmt.Sprintf(
-				"ok %s\n",
-				command.ReferenceName,
-			)))
-		} else {
+	if unpackErr == nil {
+		pw.WritePktLine([]byte("unpack ok\n"))
+	} else {
+		pw.WritePktLine([]byte(fmt.Sprintf("unpack %s\n", unpackErr.Error())))
+	}
+	for _, command := range commands {
+		if command.status != "ok" {
 			pw.WritePktLine([]byte(fmt.Sprintf(
 				"ng %s %s\n",
 				command.ReferenceName,
 				command.status,
+			)))
+		} else if unpackErr != nil {
+			pw.WritePktLine([]byte(fmt.Sprintf(
+				"ng %s unpack-failed\n",
+				command.ReferenceName,
+			)))
+		} else if err != nil {
+			pw.WritePktLine([]byte(fmt.Sprintf(
+				"ng %s %s\n",
+				command.ReferenceName,
+				err.Error(),
+			)))
+		} else {
+			pw.WritePktLine([]byte(fmt.Sprintf(
+				"ok %s\n",
+				command.ReferenceName,
 			)))
 		}
 	}

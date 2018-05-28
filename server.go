@@ -163,12 +163,10 @@ func writeHeader(w http.ResponseWriter, err error) {
 
 // A gitHTTPHandler implements git's smart protocol.
 type gitHTTPHandler struct {
-	rootPath           string
-	enableBrowse       bool
-	log                log15.Logger
-	authCallback       AuthorizationCallback
-	updateCallback     UpdateCallback
-	preprocessCallback PreprocessCallback
+	rootPath     string
+	enableBrowse bool
+	log          log15.Logger
+	protocol     *GitProtocol
 }
 
 func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +203,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serviceName := relativeURL.Query().Get("service")
 	if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-upload-pack" {
-		level := h.authCallback(ctx, w, r, repositoryName, OperationPull)
+		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -217,7 +215,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-upload-pack" {
-		level := h.authCallback(ctx, w, r, repositoryName, OperationPull)
+		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -230,12 +228,13 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-receive-pack" {
-		level := h.authCallback(ctx, w, r, repositoryName, OperationPush)
+		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
 			writeHeader(w, ErrForbidden)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
@@ -245,12 +244,13 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-receive-pack" {
-		level := h.authCallback(ctx, w, r, repositoryName, OperationPush)
+		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
 			writeHeader(w, ErrForbidden)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-result")
@@ -259,8 +259,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx,
 			repositoryPath,
 			level,
-			h.updateCallback,
-			h.preprocessCallback,
+			h.protocol,
 			h.log,
 			r.Body,
 			w,
@@ -269,7 +268,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "GET" && h.enableBrowse {
-		level := h.authCallback(ctx, w, r, repositoryName, OperationBrowse)
+		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationBrowse)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -300,31 +299,13 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func GitServer(
 	rootPath string,
 	enableBrowse bool,
-	authCallback AuthorizationCallback,
-	updateCallback UpdateCallback,
-	preprocessCallback PreprocessCallback,
+	protocol *GitProtocol,
 	log log15.Logger,
 ) http.Handler {
-	handler := &gitHTTPHandler{
-		rootPath:           rootPath,
-		enableBrowse:       enableBrowse,
-		log:                log,
-		authCallback:       authCallback,
-		updateCallback:     updateCallback,
-		preprocessCallback: preprocessCallback,
+	return &gitHTTPHandler{
+		rootPath:     rootPath,
+		enableBrowse: enableBrowse,
+		log:          log,
+		protocol:     protocol,
 	}
-
-	if handler.authCallback == nil {
-		handler.authCallback = noopAuthorizationCallback
-	}
-
-	if handler.updateCallback == nil {
-		handler.updateCallback = noopUpdateCallback
-	}
-
-	if handler.preprocessCallback == nil {
-		handler.preprocessCallback = noopPreprocessCallback
-	}
-
-	return handler
 }
