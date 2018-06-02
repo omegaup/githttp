@@ -83,14 +83,15 @@ const (
 )
 
 // AuthorizationCallback is invoked by GitServer when a user requests to
-// perform an action.
+// perform an action. It returns the authorization level and the username that
+// is requesting the action.
 type AuthorizationCallback func(
 	ctx context.Context,
 	w http.ResponseWriter,
 	r *http.Request,
 	repositoryName string,
 	operation GitOperation,
-) AuthorizationLevel
+) (AuthorizationLevel, string)
 
 func noopAuthorizationCallback(
 	ctx context.Context,
@@ -98,8 +99,8 @@ func noopAuthorizationCallback(
 	r *http.Request,
 	repositoryName string,
 	operation GitOperation,
-) AuthorizationLevel {
-	return AuthorizationAllowed
+) (AuthorizationLevel, string) {
+	return AuthorizationDenied, ""
 }
 
 // UpdateCallback is invoked by GitServer when a user attempts to update a
@@ -203,7 +204,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serviceName := relativeURL.Query().Get("service")
 	if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-upload-pack" {
-		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
+		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -215,7 +216,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-upload-pack" {
-		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
+		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -228,7 +229,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-receive-pack" {
-		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
+		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -244,7 +245,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-receive-pack" {
-		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
+		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			return
 		}
@@ -268,7 +269,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "GET" && h.enableBrowse {
-		level := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationBrowse)
+		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationBrowse)
 		if level == AuthorizationDenied {
 			return
 		}

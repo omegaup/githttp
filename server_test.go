@@ -2,9 +2,11 @@ package githttp
 
 import (
 	"bytes"
+	"context"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -12,6 +14,16 @@ import (
 	"strings"
 	"testing"
 )
+
+func allowAuthorizationCallback(
+	ctx context.Context,
+	w http.ResponseWriter,
+	r *http.Request,
+	repositoryName string,
+	operation GitOperation,
+) (AuthorizationLevel, string) {
+	return AuthorizationAllowed, "test_user"
+}
 
 func TestServerClone(t *testing.T) {
 	gitcmd, err := exec.LookPath("git")
@@ -26,7 +38,7 @@ func TestServerClone(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	log := log15.New()
-	handler := GitServer("testdata", true, NewGitProtocol(nil, nil, nil, log), log)
+	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -59,7 +71,7 @@ func TestServerCloneShallow(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	log := log15.New()
-	handler := GitServer("testdata", true, NewGitProtocol(nil, nil, nil, log), log)
+	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -115,7 +127,7 @@ func TestServerPush(t *testing.T) {
 		repo.Free()
 	}
 
-	handler := GitServer(dir, true, NewGitProtocol(nil, nil, nil, log), log)
+	handler := GitServer(dir, true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -194,7 +206,7 @@ func TestGitbomb(t *testing.T) {
 		repo.Free()
 	}
 
-	handler := GitServer(dir, true, NewGitProtocol(nil, nil, nil, log), log)
+	handler := GitServer(dir, true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
