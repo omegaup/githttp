@@ -102,6 +102,8 @@ func (c *GitCommand) String() string {
 	)
 }
 
+// A GitProtocol contains the callbacks needed to customize the behavior of
+// GitServer.
 type GitProtocol struct {
 	AuthCallback       AuthorizationCallback
 	UpdateCallback     UpdateCallback
@@ -109,6 +111,7 @@ type GitProtocol struct {
 	log                log15.Logger
 }
 
+// NewGitProtocol returns a new instance of GitProtocol.
 func NewGitProtocol(
 	authCallback AuthorizationCallback,
 	updateCallback UpdateCallback,
@@ -136,13 +139,15 @@ func NewGitProtocol(
 	return protocol
 }
 
+// PushPackfile unpacks the provided packfile (provided as an io.Reader), and
+// updates the refs provided as commands into the repository.
 func (p *GitProtocol) PushPackfile(
 	ctx context.Context,
 	repository *git.Repository,
 	level AuthorizationLevel,
 	commands []*GitCommand,
 	r io.Reader,
-) (error, error) {
+) (err, unpackErr error) {
 	odb, err := repository.Odb()
 	if err != nil {
 		p.log.Error("Error opening git odb", "err", err)
