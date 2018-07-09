@@ -209,9 +209,7 @@ func (p *GitProtocol) PushPackfile(
 				commit.Free()
 			}
 		}
-		if command.status == "ok" {
-			p.log.Info("Ref successfully updated", "command", command)
-		} else {
+		if command.status != "ok" {
 			p.log.Error("Command status not ok", "status", command.status)
 			return ErrBadRequest, nil
 		}
@@ -237,7 +235,7 @@ func (p *GitProtocol) PushPackfile(
 	}
 
 	for _, command := range commands {
-		_, err = repository.References.Create(
+		ref, err := repository.References.Create(
 			command.ReferenceName,
 			command.New,
 			true,
@@ -251,7 +249,10 @@ func (p *GitProtocol) PushPackfile(
 			)
 			command.status = err.Error()
 			return ErrBadRequest, nil
+		} else {
+			p.log.Info("Ref successfully updated", "command", command)
 		}
+		ref.Free()
 	}
 
 	return nil, nil

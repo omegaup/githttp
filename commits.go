@@ -261,7 +261,7 @@ func SplitTree(
 		}
 		defer tree.Free()
 
-		log.Debug("Creating subtree", "name", name, "contents", subpaths)
+		log.Debug("Creating subtree", "name", name, "contents", subpaths, "id", tree.Id().String())
 		if err = treebuilder.Insert(name, tree.Id(), originalEntry.Filemode); err != nil {
 			log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
 			return nil, err
@@ -378,6 +378,8 @@ func SplitCommit(
 				)
 				return nil, err
 			}
+			defer parentCommitTree.Free()
+
 			if newTree.Id().Equal(parentCommitTree.Id()) {
 				splitResult = append(splitResult, SplitCommitResult{
 					CommitID: description.ParentCommit.Id(),
@@ -395,6 +397,7 @@ func SplitCommit(
 				return nil, err
 			}
 			defer newParentCommit.Free()
+
 			parentCommits = append(parentCommits, newParentCommit)
 		}
 
@@ -499,22 +502,14 @@ func SpliceCommit(
 			return nil, err
 		}
 		defer newCommit.Free()
+		var oldCommit *git.Commit
 		var oldCommitID *git.Oid
+		var oldTreeID *git.Oid
 		if descriptions[i].ParentCommit != nil {
+			oldCommit = descriptions[i].ParentCommit
 			oldCommitID = descriptions[i].ParentCommit.Id()
+			oldTreeID = descriptions[i].ParentCommit.TreeId()
 		}
-		newCommands = append(
-			newCommands,
-			&GitCommand{
-				Old:           oldCommitID,
-				New:           splitCommit.CommitID,
-				ReferenceName: descriptions[i].ReferenceName,
-				Reference:     descriptions[i].Reference,
-				status:        "ok",
-				logMessage:    newCommit.Message(),
-			},
-		)
-		parentCommits = append(parentCommits, newCommit)
 
 		newTree, err := newRepository.LookupTree(splitCommit.TreeID)
 		if err != nil {
@@ -527,6 +522,23 @@ func SpliceCommit(
 		}
 		defer newTree.Free()
 		newTrees = append(newTrees, newTree)
+
+		if oldTreeID != nil && splitCommit.TreeID.Equal(oldTreeID) {
+			parentCommits = append(parentCommits, oldCommit)
+		} else {
+			newCommands = append(
+				newCommands,
+				&GitCommand{
+					Old:           oldCommitID,
+					New:           splitCommit.CommitID,
+					ReferenceName: descriptions[i].ReferenceName,
+					Reference:     descriptions[i].Reference,
+					status:        "ok",
+					logMessage:    newCommit.Message(),
+				},
+			)
+			parentCommits = append(parentCommits, newCommit)
+		}
 	}
 
 	mergedTree, err := MergeTrees(
