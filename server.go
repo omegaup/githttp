@@ -147,6 +147,14 @@ func noopPreprocessCallback(
 	return packPath, commands, nil
 }
 
+// ContextCallback is invoked by GitServer at the beginning of each request. It
+// allows for callers to create a context wrapper.
+type ContextCallback func(ctx context.Context) context.Context
+
+func noopContextCallback(ctx context.Context) context.Context {
+	return ctx
+}
+
 // writeHeader clears any pending headers from the reply and sets the HTTP
 // status code.
 func writeHeader(w http.ResponseWriter, err error) {
@@ -164,10 +172,11 @@ func writeHeader(w http.ResponseWriter, err error) {
 
 // A gitHTTPHandler implements git's smart protocol.
 type gitHTTPHandler struct {
-	rootPath     string
-	enableBrowse bool
-	log          log15.Logger
-	protocol     *GitProtocol
+	rootPath        string
+	enableBrowse    bool
+	contextCallback ContextCallback
+	protocol        *GitProtocol
+	log             log15.Logger
 }
 
 func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +196,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	ctx := r.Context()
+	ctx := h.contextCallback(r.Context())
 
 	repositoryPath := path.Join(h.rootPath, fmt.Sprintf("%s.git", repositoryName))
 	h.log.Info(
@@ -301,12 +310,18 @@ func GitServer(
 	rootPath string,
 	enableBrowse bool,
 	protocol *GitProtocol,
+	contextCallback ContextCallback,
 	log log15.Logger,
 ) http.Handler {
+	if contextCallback == nil {
+		contextCallback = noopContextCallback
+	}
+
 	return &gitHTTPHandler{
-		rootPath:     rootPath,
-		enableBrowse: enableBrowse,
-		log:          log,
-		protocol:     protocol,
+		rootPath:        rootPath,
+		enableBrowse:    enableBrowse,
+		contextCallback: contextCallback,
+		protocol:        protocol,
+		log:             log,
 	}
 }

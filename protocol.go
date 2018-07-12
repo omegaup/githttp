@@ -118,25 +118,24 @@ func NewGitProtocol(
 	preprocessCallback PreprocessCallback,
 	log log15.Logger,
 ) *GitProtocol {
-	protocol := &GitProtocol{
+	if authCallback == nil {
+		authCallback = noopAuthorizationCallback
+	}
+
+	if updateCallback == nil {
+		updateCallback = noopUpdateCallback
+	}
+
+	if preprocessCallback == nil {
+		preprocessCallback = noopPreprocessCallback
+	}
+
+	return &GitProtocol{
 		AuthCallback:       authCallback,
 		UpdateCallback:     updateCallback,
 		PreprocessCallback: preprocessCallback,
 		log:                log,
 	}
-	if protocol.AuthCallback == nil {
-		protocol.AuthCallback = noopAuthorizationCallback
-	}
-
-	if protocol.UpdateCallback == nil {
-		protocol.UpdateCallback = noopUpdateCallback
-	}
-
-	if protocol.PreprocessCallback == nil {
-		protocol.PreprocessCallback = noopPreprocessCallback
-	}
-
-	return protocol
 }
 
 // PushPackfile unpacks the provided packfile (provided as an io.Reader), and
