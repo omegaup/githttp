@@ -248,10 +248,9 @@ func (p *GitProtocol) PushPackfile(
 			)
 			command.status = err.Error()
 			return ErrBadRequest, nil
-		} else {
-			p.log.Info("Ref successfully updated", "command", command)
 		}
 		ref.Free()
+		p.log.Info("Ref successfully updated", "command", command)
 	}
 
 	return nil, nil
