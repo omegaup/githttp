@@ -103,6 +103,23 @@ func noopAuthorizationCallback(
 	return AuthorizationDenied, ""
 }
 
+// ReferenceDiscoveryCallback is invoked by GitServer when performing reference
+// discovery or prior to updating a reference. It returhn whether the provided
+// reference should be visible to the user.
+type ReferenceDiscoveryCallback func(
+	ctx context.Context,
+	repository *git.Repository,
+	referenceName string,
+) bool
+
+func noopReferenceDiscoveryCallback(
+	ctx context.Context,
+	repository *git.Repository,
+	referenceName string,
+) bool {
+	return true
+}
+
 // UpdateCallback is invoked by GitServer when a user attempts to update a
 // repository. It returns an error if the update request is invalid.
 type UpdateCallback func(
@@ -220,7 +237,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePrePull(repositoryPath, level, h.log, w); err != nil {
+		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
 			writeHeader(w, err)
 			return
 		}
@@ -249,7 +266,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePrePush(repositoryPath, level, h.log, w); err != nil {
+		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
 			writeHeader(w, err)
 			return
 		}

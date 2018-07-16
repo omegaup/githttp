@@ -58,7 +58,20 @@ func TestDiscoverReferences(t *testing.T) {
 func TestHandlePrePullRestricted(t *testing.T) {
 	var buf bytes.Buffer
 	log := log15.New()
-	err := handlePrePull("testdata/repo.git", AuthorizationAllowedRestricted, log, &buf)
+	err := handlePrePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowedRestricted,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-pull: %v", err)
 	}
@@ -82,7 +95,20 @@ func TestHandlePrePullRestricted(t *testing.T) {
 func TestHandlePrePull(t *testing.T) {
 	var buf bytes.Buffer
 	log := log15.New()
-	err := handlePrePull("testdata/repo.git", AuthorizationAllowed, log, &buf)
+	err := handlePrePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-pull: %v", err)
 	}
@@ -107,7 +133,20 @@ func TestHandlePrePull(t *testing.T) {
 func TestHandlePrePush(t *testing.T) {
 	var buf bytes.Buffer
 	log := log15.New()
-	err := handlePrePush("testdata/repo.git", AuthorizationAllowed, log, &buf)
+	err := handlePrePush(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-push: %v", err)
 	}
@@ -131,7 +170,20 @@ func TestHandlePrePush(t *testing.T) {
 func TestHandleEmptyPrePull(t *testing.T) {
 	var buf bytes.Buffer
 	log := log15.New()
-	err := handlePrePull("testdata/empty.git", AuthorizationAllowed, log, &buf)
+	err := handlePrePull(
+		context.Background(),
+		"testdata/empty.git",
+		AuthorizationAllowed,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-pull: %v", err)
 	}
@@ -152,7 +204,20 @@ func TestHandleEmptyPrePull(t *testing.T) {
 func TestHandleEmptyPrePush(t *testing.T) {
 	var buf bytes.Buffer
 	log := log15.New()
-	err := handlePrePush("testdata/empty.git", AuthorizationAllowed, log, &buf)
+	err := handlePrePush(
+		context.Background(),
+		"testdata/empty.git",
+		AuthorizationAllowed,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-push: %v", err)
 	}
@@ -553,6 +618,7 @@ func TestHandlePushUnborn(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			log,
 		),
 		log,
@@ -576,7 +642,20 @@ func TestHandlePushUnborn(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = handlePrePull(dir, AuthorizationAllowed, log, &buf)
+	err = handlePrePull(
+		context.Background(),
+		dir,
+		AuthorizationAllowed,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-pull: %v", err)
 	}
@@ -635,6 +714,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(
+			nil,
 			nil,
 			nil,
 			func(
@@ -722,7 +802,20 @@ func TestHandlePushPreprocess(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err = handlePrePull(dir, AuthorizationAllowed, log, &buf)
+	err = handlePrePull(
+		context.Background(),
+		dir,
+		AuthorizationAllowed,
+		NewGitProtocol(
+			nil,
+			nil,
+			nil,
+			nil,
+			log,
+		),
+		log,
+		&buf,
+	)
 	if err != nil {
 		t.Errorf("Failed to get pre-pull: %v", err)
 	}
@@ -783,6 +876,7 @@ func TestHandlePushCallback(t *testing.T) {
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(
+			nil,
 			nil,
 			func(
 				ctx context.Context,
@@ -858,6 +952,7 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			log,
 		),
 		log,
@@ -919,6 +1014,7 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(
+			nil,
 			nil,
 			nil,
 			nil,
@@ -986,6 +1082,7 @@ func TestHandlePushMerge(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			log,
 		),
 		log,
@@ -1047,6 +1144,7 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1114,6 +1212,7 @@ func TestHandleNonFastForward(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			nil,
 			log,
 		),
 		log,
@@ -1158,6 +1257,7 @@ func TestHandleNonFastForward(t *testing.T) {
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(
+			nil,
 			nil,
 			nil,
 			nil,

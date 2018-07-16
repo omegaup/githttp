@@ -38,7 +38,7 @@ func TestServerClone(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	log := log15.New()
-	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), nil, log)
+	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log), nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -71,7 +71,7 @@ func TestServerCloneShallow(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	log := log15.New()
-	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), nil, log)
+	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log), nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -127,7 +127,7 @@ func TestServerPush(t *testing.T) {
 		repo.Free()
 	}
 
-	handler := GitServer(dir, true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), nil, log)
+	handler := GitServer(dir, true, NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log), nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -206,7 +206,7 @@ func TestGitbomb(t *testing.T) {
 		repo.Free()
 	}
 
-	handler := GitServer(dir, true, NewGitProtocol(allowAuthorizationCallback, nil, nil, log), nil, log)
+	handler := GitServer(dir, true, NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log), nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 

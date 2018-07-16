@@ -105,21 +105,27 @@ func (c *GitCommand) String() string {
 // A GitProtocol contains the callbacks needed to customize the behavior of
 // GitServer.
 type GitProtocol struct {
-	AuthCallback       AuthorizationCallback
-	UpdateCallback     UpdateCallback
-	PreprocessCallback PreprocessCallback
-	log                log15.Logger
+	AuthCallback               AuthorizationCallback
+	ReferenceDiscoveryCallback ReferenceDiscoveryCallback
+	UpdateCallback             UpdateCallback
+	PreprocessCallback         PreprocessCallback
+	log                        log15.Logger
 }
 
 // NewGitProtocol returns a new instance of GitProtocol.
 func NewGitProtocol(
 	authCallback AuthorizationCallback,
+	referenceDiscoveryCallback ReferenceDiscoveryCallback,
 	updateCallback UpdateCallback,
 	preprocessCallback PreprocessCallback,
 	log log15.Logger,
 ) *GitProtocol {
 	if authCallback == nil {
 		authCallback = noopAuthorizationCallback
+	}
+
+	if referenceDiscoveryCallback == nil {
+		referenceDiscoveryCallback = noopReferenceDiscoveryCallback
 	}
 
 	if updateCallback == nil {
@@ -131,10 +137,11 @@ func NewGitProtocol(
 	}
 
 	return &GitProtocol{
-		AuthCallback:       authCallback,
-		UpdateCallback:     updateCallback,
-		PreprocessCallback: preprocessCallback,
-		log:                log,
+		AuthCallback:               authCallback,
+		ReferenceDiscoveryCallback: referenceDiscoveryCallback,
+		UpdateCallback:             updateCallback,
+		PreprocessCallback:         preprocessCallback,
+		log:                        log,
 	}
 }
 
@@ -185,6 +192,8 @@ func (p *GitProtocol) PushPackfile(
 				if !validateFastForward(repository, commit, command.Reference) {
 					command.status = "non-fast-forward"
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
+					command.status = "restricted-ref"
+				} else if !p.ReferenceDiscoveryCallback(ctx, repository, command.ReferenceName) {
 					command.status = "restricted-ref"
 				} else {
 					parentCommit := commit.Parent(0)
@@ -387,12 +396,14 @@ func commitPackfile(packPath string, writepack *git.OdbWritepack) error {
 // aboutells the client what references the server knows about so it can choose
 // what references to push/pull.
 func handleInfoRefs(
+	ctx context.Context,
 	repositoryPath string,
 	serviceName string,
 	capabilities Capabilities,
 	sendSymref bool,
 	sendCapabilities bool,
 	level AuthorizationLevel,
+	protocol *GitProtocol,
 	log log15.Logger,
 	w io.Writer,
 ) error {
@@ -450,6 +461,9 @@ func handleInfoRefs(
 		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name()) {
 			continue
 		}
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, ref.Name()) {
+			continue
+		}
 		if sentCapabilities {
 			p.WritePktLine([]byte(fmt.Sprintf(
 				"%s %s\n",
@@ -480,18 +494,22 @@ func handleInfoRefs(
 // service with /info/refs URL). This performs the server-side reference
 // discovery.
 func handlePrePull(
+	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
+	protocol *GitProtocol,
 	log log15.Logger,
 	w io.Writer,
 ) error {
 	return handleInfoRefs(
+		ctx,
 		repositoryPath,
 		"git-upload-pack",
 		pullCapabilities,
 		true,
 		false,
 		level,
+		protocol,
 		log,
 		w,
 	)
@@ -707,18 +725,22 @@ func handlePull(
 // will be sent to the server and replies to the client with the list of
 // references it can update.
 func handlePrePush(
+	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
+	protocol *GitProtocol,
 	log log15.Logger,
 	w io.Writer,
 ) error {
 	return handleInfoRefs(
+		ctx,
 		repositoryPath,
 		"git-receive-pack",
 		pushCapabilities,
 		false,
 		true,
 		level,
+		protocol,
 		log,
 		w,
 	)
