@@ -182,6 +182,8 @@ func writeHeader(w http.ResponseWriter, err error) {
 		w.WriteHeader(http.StatusBadRequest)
 	} else if err == ErrNotFound {
 		w.WriteHeader(http.StatusNotFound)
+	} else if err == ErrForbidden {
+		w.WriteHeader(http.StatusForbidden)
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
