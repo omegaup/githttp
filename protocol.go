@@ -68,6 +68,13 @@ type GitCommand struct {
 	logMessage    string
 }
 
+// An UpdatedRef describes a reference that was updated.
+type UpdatedRef struct {
+	Name string `json:"name"`
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
 // IsCreate returns whether the command creates a ref.
 func (c *GitCommand) IsCreate() bool {
 	return c.Old.IsZero()
@@ -153,25 +160,25 @@ func (p *GitProtocol) PushPackfile(
 	level AuthorizationLevel,
 	commands []*GitCommand,
 	r io.Reader,
-) (err, unpackErr error) {
+) (updatedRefs []UpdatedRef, err, unpackErr error) {
 	odb, err := repository.Odb()
 	if err != nil {
 		p.log.Error("Error opening git odb", "err", err)
-		return err, err
+		return nil, err, err
 	}
 	defer odb.Free()
 
 	writepack, err := odb.NewWritePack(nil)
 	if err != nil {
 		p.log.Error("Error creating writepack", "err", err)
-		return err, err
+		return nil, err, err
 	}
 	defer writepack.Free()
 
 	tmpDir, err := ioutil.TempDir("", "packfile")
 	if err != nil {
 		p.log.Error("Failed to create temp directory", "err", err)
-		return err, err
+		return nil, err, err
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -179,7 +186,7 @@ func (p *GitProtocol) PushPackfile(
 
 	if err != nil {
 		p.log.Error("Error unpacking", "err", err)
-		return err, err
+		return nil, err, err
 	}
 
 	for _, command := range commands {
@@ -219,7 +226,7 @@ func (p *GitProtocol) PushPackfile(
 		}
 		if command.status != "ok" {
 			p.log.Error("Command status not ok", "status", command.status)
-			return ErrBadRequest, nil
+			return nil, ErrBadRequest, nil
 		}
 	}
 
@@ -233,15 +240,16 @@ func (p *GitProtocol) PushPackfile(
 	)
 	if err != nil {
 		p.log.Error("Preprocessing failed", "err", err)
-		return ErrBadRequest, nil
+		return nil, ErrBadRequest, nil
 	}
 
 	err = commitPackfile(packPath, writepack)
 	if err != nil {
 		p.log.Error("Error committing packfile", "err", err)
-		return err, nil
+		return nil, err, nil
 	}
 
+	updatedRefs = make([]UpdatedRef, 0)
 	for _, command := range commands {
 		ref, err := repository.References.Create(
 			command.ReferenceName,
@@ -256,13 +264,23 @@ func (p *GitProtocol) PushPackfile(
 				"err", err,
 			)
 			command.status = err.Error()
-			return ErrBadRequest, nil
+			return nil, ErrBadRequest, nil
 		}
+		updatedRef := UpdatedRef{
+			Name: command.ReferenceName,
+			To:   command.New.String(),
+		}
+		if command.Old != nil {
+			updatedRef.From = command.Old.String()
+		} else {
+			updatedRef.From = (&git.Oid{}).String()
+		}
+		updatedRefs = append(updatedRefs, updatedRef)
 		ref.Free()
 		p.log.Info("Ref successfully updated", "command", command)
 	}
 
-	return nil, nil
+	return updatedRefs, nil, nil
 }
 
 // A ReferenceDiscovery represents the result of the reference discovery
@@ -821,7 +839,7 @@ func handlePush(
 
 	log.Debug("Commands", "commands", commands)
 
-	err, unpackErr := protocol.PushPackfile(
+	_, err, unpackErr := protocol.PushPackfile(
 		ctx,
 		repository,
 		level,

@@ -557,7 +557,7 @@ func SpliceCommit(
 		commitMessage += "\n" + commitMessageTag
 	}
 
-	mergeID, err := newRepository.CreateCommit(
+	mergedID, err := newRepository.CreateCommit(
 		"",
 		author,
 		committer,
@@ -577,7 +577,7 @@ func SpliceCommit(
 		newCommands,
 		&GitCommand{
 			Old:           oldCommitID,
-			New:           mergeID,
+			New:           mergedID,
 			ReferenceName: referenceName,
 			Reference:     reference,
 			status:        "ok",
