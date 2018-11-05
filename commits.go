@@ -367,7 +367,7 @@ func SplitCommit(
 		}
 		defer newTree.Free()
 
-		parentCommits := make([]*git.Commit, 0)
+		parentCommits := make([]*git.Oid, 0)
 		if description.ParentCommit != nil {
 			parentCommitTree, err := description.ParentCommit.Tree()
 			if err != nil {
@@ -398,15 +398,17 @@ func SplitCommit(
 			}
 			defer newParentCommit.Free()
 
-			parentCommits = append(parentCommits, newParentCommit)
+			parentCommits = append(parentCommits, newParentCommit.Id())
 		}
 
-		newCommitID, err := repository.CreateCommit(
+		// This cannot use CreateCommit, since the parent commits are not yet in
+		// the repository. We are yet to create a packfile with them.
+		newCommitID, err := repository.CreateCommitFromIds(
 			"",
 			author,
 			committer,
 			commitMessage,
-			newTree,
+			newTree.Id(),
 			parentCommits...,
 		)
 		if err != nil {
@@ -486,9 +488,9 @@ func SpliceCommit(
 
 	newCommands := make([]*GitCommand, 0)
 	newTrees := make([]*git.Tree, 0)
-	parentCommits := make([]*git.Commit, 0)
+	parentCommits := make([]*git.Oid, 0)
 	if parentCommit != nil {
-		parentCommits = append(parentCommits, parentCommit)
+		parentCommits = append(parentCommits, parentCommit.Id())
 	}
 
 	for i, splitCommit := range splitCommits {
@@ -524,7 +526,7 @@ func SpliceCommit(
 		newTrees = append(newTrees, newTree)
 
 		if oldTreeID != nil && splitCommit.TreeID.Equal(oldTreeID) {
-			parentCommits = append(parentCommits, oldCommit)
+			parentCommits = append(parentCommits, oldCommit.Id())
 		} else {
 			newCommands = append(
 				newCommands,
@@ -537,7 +539,7 @@ func SpliceCommit(
 					logMessage:    newCommit.Message(),
 				},
 			)
-			parentCommits = append(parentCommits, newCommit)
+			parentCommits = append(parentCommits, newCommit.Id())
 		}
 	}
 
@@ -557,12 +559,14 @@ func SpliceCommit(
 		commitMessage += "\n" + commitMessageTag
 	}
 
-	mergedID, err := newRepository.CreateCommit(
+	// This cannot use CreateCommit, since the parent commits are not yet in the
+	// repository. We are yet to create a packfile with them.
+	mergedID, err := newRepository.CreateCommitFromIds(
 		"",
 		author,
 		committer,
 		commitMessage,
-		mergedTree,
+		mergedTree.Id(),
 		parentCommits...,
 	)
 	if err != nil {
