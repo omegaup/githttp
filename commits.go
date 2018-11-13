@@ -431,6 +431,7 @@ func SplitCommit(
 func SpliceCommit(
 	repository *git.Repository,
 	commit, parentCommit *git.Commit,
+	overrides map[string]io.Reader,
 	descriptions []SplitCommitDescription,
 	author, committer *git.Signature,
 	referenceName string,
@@ -471,6 +472,65 @@ func SpliceCommit(
 		return nil, err
 	}
 	defer originalTree.Free()
+
+	if len(overrides) != 0 {
+		overrideTree, err := BuildTree(
+			newRepository,
+			overrides,
+			log,
+		)
+		if err != nil {
+			log.Error("Error creating the override tree", "err", err)
+			return nil, err
+		}
+		defer overrideTree.Free()
+		originalTree, err := commit.Tree()
+		if err != nil {
+			log.Error("Error obtaining the original commit tree", "err", err)
+			return nil, err
+		}
+		defer originalTree.Free()
+		if err = copyTree(repository, originalTree.Id(), newRepository, log); err != nil {
+			log.Error("Error copying the original tree to the new repository", "err", err)
+			return nil, err
+		}
+		mergedOverrideTree, err := MergeTrees(
+			newRepository,
+			log,
+			overrideTree,
+			originalTree,
+		)
+		if err != nil {
+			log.Error("Error creating merged override tree", "err", err)
+			return nil, err
+		}
+
+		var overrideCommitParents []*git.Oid
+		if parentCommit != nil {
+			overrideCommitParents = append(overrideCommitParents, parentCommit.Id())
+		}
+		overrideCommitID, err := newRepository.CreateCommitFromIds(
+			"",
+			commit.Author(),
+			commit.Committer(),
+			commit.Message(),
+			mergedOverrideTree.Id(),
+			overrideCommitParents...,
+		)
+		if err != nil {
+			log.Error("Error creating the override commit", "err", err)
+			return nil, err
+		}
+		if commit, err = newRepository.LookupCommit(overrideCommitID); err != nil {
+			log.Error("Error looking up the overriden commit", "err", err)
+			return nil, err
+		}
+		defer commit.Free()
+
+		// Now that all the objects needed are in the new repository, we can just
+		// do everything in that one.
+		repository = newRepository
+	}
 
 	splitCommits, err := SplitCommit(
 		commit,

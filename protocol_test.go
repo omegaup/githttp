@@ -682,7 +682,9 @@ func TestHandlePushPreprocess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	if os.Getenv("PRESERVE") == "" {
+		defer os.RemoveAll(dir)
+	}
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -740,6 +742,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 					originalRepository,
 					originalCommit,
 					nil,
+					map[string]io.Reader{},
 					[]SplitCommitDescription{
 						SplitCommitDescription{
 							PathRegexps: []*regexp.Regexp{

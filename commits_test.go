@@ -8,8 +8,10 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSplitTrees(t *testing.T) {
@@ -112,7 +114,9 @@ func TestMergeTrees(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	defer os.RemoveAll(dir)
+	if os.Getenv("PRESERVE") == "" {
+		defer os.RemoveAll(dir)
+	}
 
 	repo, err := git.InitRepository(dir, true)
 	if err != nil {
@@ -220,4 +224,116 @@ func TestMergeTrees(t *testing.T) {
 			t.Errorf("Expected %v, got %v", expectedTree.Id(), tree.Id())
 		}
 	}
+}
+
+func TestSpliceCommit(t *testing.T) {
+	dir, err := ioutil.TempDir("", "commits_test")
+	if err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	if os.Getenv("PRESERVE") == "" {
+		defer os.RemoveAll(dir)
+	}
+
+	repository, err := git.InitRepository(dir, true)
+	if err != nil {
+		t.Fatalf("Failed to initialize git repository: %v", err)
+	}
+	defer repository.Free()
+
+	log := log15.New()
+
+	originalTree, err := BuildTree(
+		repository,
+		map[string]io.Reader{
+			// public
+			"examples/0.in":                strings.NewReader("1 2"),
+			"examples/0.out":               strings.NewReader("3"),
+			"interactive/Main.distrib.cpp": strings.NewReader("int main() {}"),
+			"statements/es.markdown":       strings.NewReader("Sumaz"),
+			"statements/images/foo.png":    strings.NewReader(""),
+			// protected
+			"solution/es.markdown": strings.NewReader("Sumaz"),
+			"tests/tests.json":     strings.NewReader("{}"),
+			// private
+			"cases/0.in":           strings.NewReader("1 2"),
+			"cases/0.out":          strings.NewReader("3"),
+			"interactive/Main.cpp": strings.NewReader("int main() {}"),
+			"settings.json":        strings.NewReader("{}"),
+			"validator.cpp":        strings.NewReader("int main() {}"),
+		},
+		log,
+	)
+	if err != nil {
+		t.Fatalf("Failed to build source git tree: %v", err)
+	}
+	defer originalTree.Free()
+
+	originalCommitID, err := repository.CreateCommit(
+		"",
+		&git.Signature{
+			Name:  "author",
+			Email: "author@test.test",
+			When:  time.Unix(0, 0),
+		},
+		&git.Signature{
+			Name:  "author",
+			Email: "author@test.test",
+			When:  time.Unix(0, 0),
+		},
+		"Initial commit",
+		originalTree,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create initial commit: %v", err)
+	}
+	originalCommit, err := repository.LookupCommit(originalCommitID)
+	if err != nil {
+		t.Fatalf("Failed to lookup initial commit: %v", err)
+	}
+
+	newPackPath := path.Join(dir, "new.pack")
+	newCommands, err := SpliceCommit(
+		repository,
+		originalCommit,
+		nil,
+		map[string]io.Reader{
+			"solution/es.markdown":   strings.NewReader("Sumas"),
+			"statements/es.markdown": strings.NewReader("Sumas"),
+		},
+		[]SplitCommitDescription{
+			SplitCommitDescription{
+				PathRegexps: []*regexp.Regexp{
+					regexp.MustCompile("^cases$"),
+				},
+				ReferenceName: "refs/heads/private",
+			},
+			SplitCommitDescription{
+				PathRegexps: []*regexp.Regexp{
+					regexp.MustCompile("^statements$"),
+				},
+				ReferenceName: "refs/heads/public",
+			},
+		},
+		&git.Signature{
+			Name:  "author",
+			Email: "author@test.test",
+			When:  time.Unix(0, 0),
+		},
+		&git.Signature{
+			Name:  "committer",
+			Email: "committer@test.test",
+			When:  time.Unix(0, 0),
+		},
+		"refs/heads/master",
+		nil,
+		"Reviewed-In: http://localhost/review/1/",
+		newPackPath,
+		log,
+	)
+	if err != nil {
+		t.Fatalf("Error splicing commit: %v", err)
+	}
+
+	log.Debug("Commands changed", "newCommands", newCommands)
 }
