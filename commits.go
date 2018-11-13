@@ -462,6 +462,7 @@ func SpliceCommit(
 		log.Error("Error creating git mempack", "err", err)
 		return nil, err
 	}
+	defer mempack.Reset()
 	defer mempack.Free()
 
 	originalTree, err := commit.Tree()
@@ -589,6 +590,25 @@ func SpliceCommit(
 		},
 	)
 
+	walk, err := newRepository.Walk()
+	if err != nil {
+		log.Error("Error creating revwalk", "err", err)
+		return nil, err
+	}
+	defer walk.Free()
+
+	if parentCommit != nil {
+		if err := walk.Hide(parentCommit.Id()); err != nil {
+			log.Error("Error hiding commit", "commit", *parentCommit.Id(), "err", err)
+			return nil, err
+		}
+	}
+
+	if err := walk.Push(mergedID); err != nil {
+		log.Error("Error pushing commit", "commit", *mergedID, "err", err)
+		return nil, err
+	}
+
 	f, err := os.Create(newPackPath)
 	if err != nil {
 		log.Error("Error opening file for writing", "path", newPackPath, "err", err)
@@ -596,14 +616,19 @@ func SpliceCommit(
 	}
 	defer f.Close()
 
-	packContents, err := mempack.Dump(newRepository)
+	pb, err := newRepository.NewPackbuilder()
 	if err != nil {
-		log.Error("Error dumping packfile", "path", newPackPath, "err", err)
+		log.Error("Error creating packbuilder", "err", err)
+		return nil, err
+	}
+	defer pb.Free()
+
+	if err := pb.InsertWalk(walk); err != nil {
+		log.Error("Error inserting walk into packbuilder", "err", err)
 		return nil, err
 	}
 
-	_, err = f.Write(packContents)
-	if err != nil {
+	if err := pb.Write(f); err != nil {
 		log.Error("Error writing packfile", "path", newPackPath, "err", err)
 		return nil, err
 	}
