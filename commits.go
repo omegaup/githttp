@@ -522,7 +522,7 @@ func SpliceCommit(
 			return nil, err
 		}
 		if commit, err = newRepository.LookupCommit(overrideCommitID); err != nil {
-			log.Error("Error looking up the overriden commit", "err", err)
+			log.Error("Error looking up the overridden commit", "err", err)
 			return nil, err
 		}
 		defer commit.Free()
