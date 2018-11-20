@@ -57,7 +57,7 @@ func TestSplitTrees(t *testing.T) {
 
 	for _, paths := range [][]string{
 		// public
-		[]string{
+		{
 			"examples/0.in",
 			"examples/0.out",
 			"interactive/Main.distrib.cpp",
@@ -65,12 +65,12 @@ func TestSplitTrees(t *testing.T) {
 			"statements/images/foo.png",
 		},
 		// protected
-		[]string{
+		{
 			"solution/es.markdown",
 			"tests/tests.json",
 		},
 		// private
-		[]string{
+		{
 			"cases/0.in",
 			"cases/0.out",
 			"interactive/Main.cpp",
@@ -133,13 +133,13 @@ func TestMergeTrees(t *testing.T) {
 
 	for _, entry := range []testEntry{
 		// Simple case.
-		testEntry{
+		{
 			trees: []map[string]io.Reader{
-				map[string]io.Reader{
+				{
 					"cases/0.in":  strings.NewReader("1 2"),
 					"cases/0.out": strings.NewReader("3"),
 				},
-				map[string]io.Reader{
+				{
 					"statements/es.markdown": strings.NewReader("Sumas"),
 				},
 			},
@@ -150,15 +150,15 @@ func TestMergeTrees(t *testing.T) {
 			},
 		},
 		// Merging three trees.
-		testEntry{
+		{
 			trees: []map[string]io.Reader{
-				map[string]io.Reader{
+				{
 					"cases/0.in": strings.NewReader("1 2"),
 				},
-				map[string]io.Reader{
+				{
 					"cases/0.out": strings.NewReader("3"),
 				},
-				map[string]io.Reader{
+				{
 					"statements/es.markdown": strings.NewReader("Sumas"),
 				},
 			},
@@ -169,12 +169,12 @@ func TestMergeTrees(t *testing.T) {
 			},
 		},
 		// Merging a subtree.
-		testEntry{
+		{
 			trees: []map[string]io.Reader{
-				map[string]io.Reader{
+				{
 					"cases/0.in": strings.NewReader("1 2"),
 				},
-				map[string]io.Reader{
+				{
 					"cases/0.out": strings.NewReader("3"),
 				},
 			},
@@ -184,13 +184,13 @@ func TestMergeTrees(t *testing.T) {
 			},
 		},
 		// One of the files is overwritten / ignored.
-		testEntry{
+		{
 			trees: []map[string]io.Reader{
-				map[string]io.Reader{
+				{
 					"cases/0.in":  strings.NewReader("1 2"),
 					"cases/0.out": strings.NewReader("3"),
 				},
-				map[string]io.Reader{
+				{
 					"cases/0.out": strings.NewReader("5"),
 				},
 			},
@@ -302,13 +302,13 @@ func TestSpliceCommit(t *testing.T) {
 			"statements/es.markdown": strings.NewReader("Sumas"),
 		},
 		[]SplitCommitDescription{
-			SplitCommitDescription{
+			{
 				PathRegexps: []*regexp.Regexp{
 					regexp.MustCompile("^cases$"),
 				},
 				ReferenceName: "refs/heads/private",
 			},
-			SplitCommitDescription{
+			{
 				PathRegexps: []*regexp.Regexp{
 					regexp.MustCompile("^statements$"),
 				},

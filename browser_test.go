@@ -246,10 +246,10 @@ func TestHandleNotFound(t *testing.T) {
 	log := log15.New()
 
 	paths := []string{
-		"/+foo/",                                      // Invalid type.
-		"/+/",                                         // Missing path.
-		"/+/foo",                                      // Invalid ref.
-		"/+/master/foo",                               // Path not found.
+		"/+foo/",        // Invalid type.
+		"/+/",           // Missing path.
+		"/+/foo",        // Invalid ref.
+		"/+/master/foo", // Path not found.
 		"/+/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", // Valid ref, but is not a commit.
 		"/+log/foo", // Invalid ref.
 		"/+log/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", // Valid ref, but is not a commit.
