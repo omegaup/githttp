@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
 	"io"
 	"io/ioutil"
 	"os"
@@ -57,7 +57,7 @@ func TestDiscoverReferences(t *testing.T) {
 
 func TestHandlePrePullRestricted(t *testing.T) {
 	var buf bytes.Buffer
-	log := log15.New()
+	log := base.StderrLog()
 	err := handlePrePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -94,7 +94,7 @@ func TestHandlePrePullRestricted(t *testing.T) {
 
 func TestHandlePrePull(t *testing.T) {
 	var buf bytes.Buffer
-	log := log15.New()
+	log := base.StderrLog()
 	err := handlePrePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -132,7 +132,7 @@ func TestHandlePrePull(t *testing.T) {
 
 func TestHandlePrePush(t *testing.T) {
 	var buf bytes.Buffer
-	log := log15.New()
+	log := base.StderrLog()
 	err := handlePrePush(
 		context.Background(),
 		"testdata/repo.git",
@@ -169,7 +169,7 @@ func TestHandlePrePush(t *testing.T) {
 
 func TestHandleEmptyPrePull(t *testing.T) {
 	var buf bytes.Buffer
-	log := log15.New()
+	log := base.StderrLog()
 	err := handlePrePull(
 		context.Background(),
 		"testdata/empty.git",
@@ -203,7 +203,7 @@ func TestHandleEmptyPrePull(t *testing.T) {
 
 func TestHandleEmptyPrePush(t *testing.T) {
 	var buf bytes.Buffer
-	log := log15.New()
+	log := base.StderrLog()
 	err := handlePrePush(
 		context.Background(),
 		"testdata/empty.git",
@@ -254,7 +254,7 @@ func TestHandlePullUnknownRef(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -288,7 +288,7 @@ func TestHandleClone(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -357,7 +357,7 @@ func TestHandlePull(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -421,7 +421,7 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 		pw.Flush()
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -456,7 +456,7 @@ func TestHandleCloneShallowClone(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -526,7 +526,7 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
@@ -609,7 +609,7 @@ func TestHandlePushUnborn(t *testing.T) {
 		t.Fatalf("Failed to copy the packfile: %v", err)
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -710,7 +710,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -873,7 +873,7 @@ func TestHandlePushCallback(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -946,7 +946,7 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1011,7 +1011,7 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1076,7 +1076,7 @@ func TestHandlePushMerge(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1141,7 +1141,7 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1206,7 +1206,7 @@ func TestHandleNonFastForward(t *testing.T) {
 		}
 	}
 
-	log := log15.New()
+	log := base.StderrLog()
 	err = handlePush(
 		context.Background(),
 		dir,

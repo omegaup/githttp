@@ -2,8 +2,8 @@ package githttp
 
 import (
 	"bytes"
-	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
 	"reflect"
 	"testing"
 )
@@ -243,7 +243,7 @@ func TestHandleNotFound(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := log15.New()
+	log := base.StderrLog()
 
 	paths := []string{
 		"/+foo/",        // Invalid type.

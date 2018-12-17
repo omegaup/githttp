@@ -3,10 +3,11 @@ package githttp
 import (
 	"bytes"
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
 	"io"
 	"io/ioutil"
 	"math"
@@ -26,7 +27,7 @@ const (
 var (
 	// ErrBadRequest is returned whtn the client sends a bad request. HTTP 400
 	// will be returned to http clients.
-	ErrBadRequest = errors.New("bad request")
+	ErrBadRequest = stderrors.New("bad request")
 
 	pullCapabilities = Capabilities{"agent=gohttp", "allow-tip-sha1-in-want", "ofs-delta", "shallow", "thin-pack"}
 	pushCapabilities = Capabilities{"agent=gohttp", "atomic", "ofs-delta", "report-status"}
@@ -64,7 +65,7 @@ type GitCommand struct {
 	Old, New      *git.Oid
 	ReferenceName string
 	Reference     *git.Reference
-	status        string
+	err           error
 	logMessage    string
 }
 
@@ -190,18 +191,18 @@ func (p *GitProtocol) PushPackfile(
 	}
 
 	for _, command := range commands {
-		if command.status == "" {
+		if command.err == nil {
 			commit, err := repository.LookupCommit(command.New)
 			if err != nil {
-				command.status = "unknown-commit"
+				command.err = ErrUnknownCommit
 			} else {
 				command.logMessage = commit.Summary()
 				if !validateFastForward(repository, commit, command.Reference) {
-					command.status = "non-fast-forward"
+					command.err = ErrNonFastForward
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
-					command.status = "restricted-ref"
+					command.err = ErrRestrictedRef
 				} else if !p.ReferenceDiscoveryCallback(ctx, repository, command.ReferenceName) {
-					command.status = "restricted-ref"
+					command.err = ErrRestrictedRef
 				} else {
 					parentCommit := commit.Parent(0)
 					if err = p.UpdateCallback(
@@ -213,9 +214,7 @@ func (p *GitProtocol) PushPackfile(
 						commit,
 					); err != nil {
 						p.log.Error("Update validation failed", "command", command, "err", err)
-						command.status = err.Error()
-					} else {
-						command.status = "ok"
+						command.err = err
 					}
 					if parentCommit != nil {
 						parentCommit.Free()
@@ -224,9 +223,9 @@ func (p *GitProtocol) PushPackfile(
 				commit.Free()
 			}
 		}
-		if command.status != "ok" {
-			p.log.Error("Command status not ok", "status", command.status)
-			return nil, ErrBadRequest, nil
+		if command.err != nil {
+			p.log.Error("Command status not ok", "err", command.err)
+			return nil, base.ErrorWithCategory(ErrBadRequest, command.err), nil
 		}
 	}
 
@@ -240,7 +239,7 @@ func (p *GitProtocol) PushPackfile(
 	)
 	if err != nil {
 		p.log.Error("Preprocessing failed", "err", err)
-		return nil, ErrBadRequest, nil
+		return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
 	}
 
 	err = commitPackfile(packPath, writepack)
@@ -263,8 +262,8 @@ func (p *GitProtocol) PushPackfile(
 				"reference", command.ReferenceName,
 				"err", err,
 			)
-			command.status = err.Error()
-			return nil, ErrBadRequest, nil
+			command.err = err
+			return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
 		}
 		updatedRef := UpdatedRef{
 			Name: command.ReferenceName,
@@ -572,7 +571,7 @@ func handlePull(
 			break
 		} else if err != nil {
 			log.Error("Error reading request", "err", err)
-			return ErrBadRequest
+			return base.ErrorWithCategory(ErrBadRequest, err)
 		}
 		log.Debug("pktline", "data", strings.Trim(string(line), "\n"))
 		tokens := strings.FieldsFunc(
@@ -663,7 +662,7 @@ func handlePull(
 			break
 		} else if err != nil {
 			log.Error("Error reading request", "err", err)
-			return ErrBadRequest
+			return base.ErrorWithCategory(ErrBadRequest, err)
 		}
 		log.Debug("pktline", "data", strings.Trim(string(line), "\n"))
 		tokens := strings.FieldsFunc(
@@ -827,13 +826,13 @@ func handlePush(
 		command.Reference = references[command.ReferenceName]
 		commands = append(commands, command)
 		if command.Old, err = git.NewOid(tokens[0]); err != nil {
-			command.status = "invalid-old-oid"
+			command.err = ErrInvalidOldOid
 		} else if command.New, err = git.NewOid(tokens[1]); err != nil {
-			command.status = "invalid-new-oid"
+			command.err = ErrInvalidNewOid
 		} else if !command.IsFastForward() {
-			command.status = "non-fast-forward"
+			command.err = ErrNonFastForward
 		} else if command.IsDelete() {
-			command.status = "delete-unallowed"
+			command.err = ErrDeleteUnallowed
 		}
 	}
 
@@ -859,11 +858,11 @@ func handlePush(
 		pw.WritePktLine([]byte(fmt.Sprintf("unpack %s\n", unpackErr.Error())))
 	}
 	for _, command := range commands {
-		if command.status != "ok" {
+		if command.err != nil {
 			pw.WritePktLine([]byte(fmt.Sprintf(
 				"ng %s %s\n",
 				command.ReferenceName,
-				command.status,
+				command.err.Error(),
 			)))
 		} else if unpackErr != nil {
 			pw.WritePktLine([]byte(fmt.Sprintf(

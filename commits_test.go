@@ -1,8 +1,8 @@
 package githttp
 
 import (
-	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
 	"io"
 	"io/ioutil"
 	"os"
@@ -27,7 +27,7 @@ func TestSplitTrees(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := log15.New()
+	log := base.StderrLog()
 
 	originalTree, err := BuildTree(
 		repository,
@@ -124,7 +124,7 @@ func TestMergeTrees(t *testing.T) {
 	}
 	defer repo.Free()
 
-	log := log15.New()
+	log := base.StderrLog()
 
 	type testEntry struct {
 		trees  []map[string]io.Reader
@@ -241,7 +241,7 @@ func TestSpliceCommit(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := log15.New()
+	log := base.StderrLog()
 
 	originalTree, err := BuildTree(
 		repository,

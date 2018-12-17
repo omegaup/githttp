@@ -596,7 +596,7 @@ func SpliceCommit(
 					New:           splitCommit.CommitID,
 					ReferenceName: descriptions[i].ReferenceName,
 					Reference:     descriptions[i].Reference,
-					status:        "ok",
+					err:           nil,
 					logMessage:    newCommit.Message(),
 				},
 			)
@@ -645,7 +645,7 @@ func SpliceCommit(
 			New:           mergedID,
 			ReferenceName: referenceName,
 			Reference:     reference,
-			status:        "ok",
+			err:           nil,
 			logMessage:    commitMessage,
 		},
 	)

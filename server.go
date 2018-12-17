@@ -2,10 +2,11 @@ package githttp
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,25 +30,42 @@ const (
 
 var (
 	// ErrNotFound is returned if a reference is not found.
-	ErrNotFound = errors.New("not found")
+	ErrNotFound = stderrors.New("not found")
 
 	// ErrDeleteDisallowed is returned when a delete operation is attempted.
-	ErrDeleteDisallowed = errors.New("delete-disallowed")
+	ErrDeleteDisallowed = stderrors.New("delete-disallowed")
 
 	// ErrForbidden is returned if an operation is not allowed.
-	ErrForbidden = errors.New("forbidden")
+	ErrForbidden = stderrors.New("forbidden")
 
 	// ErrInvalidRef is returned if a reference that the system does not support
 	// is attempted to be modified.
-	ErrInvalidRef = errors.New("invalid-ref")
+	ErrInvalidRef = stderrors.New("invalid-ref")
 
 	// ErrReadOnlyRef is returned if a read-only reference is attempted to be
 	// modified.
-	ErrReadOnlyRef = errors.New("read-only")
+	ErrReadOnlyRef = stderrors.New("read-only")
 
 	// ErrRestrictedRef is returned if a restricted reference is attempted to be
 	// modified.
-	ErrRestrictedRef = errors.New("restricted-ref")
+	ErrRestrictedRef = stderrors.New("restricted-ref")
+
+	// ErrDeleteUnallowed is returned if a reference is attempted to be deleted.
+	ErrDeleteUnallowed = stderrors.New("delete-unallowed")
+
+	// ErrUnknownCommit is returned if the user is attempting to update a ref
+	// with an unknown commit.
+	ErrUnknownCommit = stderrors.New("unknown-commit")
+
+	// ErrNonFastForward is returned if the user is attempting to update a ref
+	// with a commit that is not a direct descendant of the current tip.
+	ErrNonFastForward = stderrors.New("non-fast-forward")
+
+	// ErrInvalidOldOid is returned if the provided old oid is not a valid object id.
+	ErrInvalidOldOid = stderrors.New("invalid-old-oid")
+
+	// ErrInvalidNewOid is returned if the provided new oid is not a valid object id.
+	ErrInvalidNewOid = stderrors.New("invalid-new-oid")
 )
 
 func (o GitOperation) String() string {
@@ -178,11 +196,11 @@ func writeHeader(w http.ResponseWriter, err error) {
 	for k := range w.Header() {
 		w.Header().Del(k)
 	}
-	if err == ErrBadRequest {
+	if base.HasErrorCategory(err, ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
-	} else if err == ErrNotFound {
+	} else if base.HasErrorCategory(err, ErrNotFound) {
 		w.WriteHeader(http.StatusNotFound)
-	} else if err == ErrForbidden {
+	} else if base.HasErrorCategory(err, ErrForbidden) {
 		w.WriteHeader(http.StatusForbidden)
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)

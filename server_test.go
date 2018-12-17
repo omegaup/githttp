@@ -3,8 +3,8 @@ package githttp
 import (
 	"bytes"
 	"context"
-	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -37,7 +37,7 @@ func TestServerClone(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	log := log15.New()
+	log := base.StderrLog()
 	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log), nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -70,7 +70,7 @@ func TestServerCloneShallow(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	log := log15.New()
+	log := base.StderrLog()
 	handler := GitServer("testdata", true, NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log), nil, log)
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -112,7 +112,7 @@ func TestServerPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	log := log15.New()
+	log := base.StderrLog()
 	if os.Getenv("PRESERVE") != "" {
 		log.Info("Preserving test directory", "path", dir)
 	} else {
@@ -191,7 +191,7 @@ func TestGitbomb(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	log := log15.New()
+	log := base.StderrLog()
 	if os.Getenv("PRESERVE") != "" {
 		log.Info("Preserving test directory", "path", dir)
 	} else {
