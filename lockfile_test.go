@@ -17,13 +17,41 @@ func TestUpgradeLock(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	l := NewLockfile(dir)
-	if err = l.RLock(); err != nil {
+	if err := l.RLock(); err != nil {
 		t.Fatalf("Failed to lock git repository for reading: %v", err)
 	}
-	if err = l.Lock(); err != nil {
+	if err := l.RLock(); err != nil {
+		t.Fatalf("Failed to re-lock git repository for reading: %v", err)
+	}
+	if err := l.Lock(); err != nil {
 		t.Fatalf("Failed to lock git repository for writing: %v", err)
 	}
-	if err = l.Unlock(); err != nil {
+	if err := l.Lock(); err != nil {
+		t.Fatalf("Failed to re-lock git repository for writing: %v", err)
+	}
+	if err := l.Unlock(); err != nil {
+		t.Fatalf("Failed to unlock git repository: %v", err)
+	}
+
+	if ok, err := l.TryRLock(); !ok || err != nil {
+		t.Fatalf("Failed to trylock git repository for reading: %v", err)
+	}
+	if ok, err := l.TryRLock(); !ok || err != nil {
+		t.Fatalf("Failed to re-tryock git repository for reading: %v", err)
+	}
+	if err := l.RLock(); err != nil {
+		t.Fatalf("Failed to re-lock git repository for reading: %v", err)
+	}
+	if ok, err := l.TryLock(); !ok || err != nil {
+		t.Fatalf("Failed to trylock git repository for writing: %v", err)
+	}
+	if ok, err := l.TryLock(); !ok || err != nil {
+		t.Fatalf("Failed to re-trylock git repository for writing: %v", err)
+	}
+	if err := l.Lock(); err != nil {
+		t.Fatalf("Failed to re-lock git repository for writing: %v", err)
+	}
+	if err := l.Unlock(); err != nil {
 		t.Fatalf("Failed to unlock git repository: %v", err)
 	}
 }

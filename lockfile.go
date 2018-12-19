@@ -38,6 +38,22 @@ func (l *Lockfile) open() error {
 	return nil
 }
 
+// TryRLock attempts to acquires a shared lock for the Lockfile's path. More
+// than one process / goroutine may hold a shared lock for this Lockfile's path
+// at any given time.
+func (l *Lockfile) TryRLock() (bool, error) {
+	if err := l.open(); err != nil {
+		return false, err
+	}
+	if err := syscall.Flock(l.fd, syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
+		if err == syscall.EWOULDBLOCK {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // RLock acquires a shared lock for the Lockfile's path. More than one process
 // / goroutine may hold a shared lock for this Lockfile's path at any given
 // time.
@@ -46,6 +62,22 @@ func (l *Lockfile) RLock() error {
 		return err
 	}
 	return syscall.Flock(l.fd, syscall.LOCK_SH)
+}
+
+// TryLock attempts to acquire an exclusive lock for the Lockfile's path and
+// returns whether it was able to do so. Only one process / goroutine may hold
+// an exclusive lock for this Lockfile's path at any given time.
+func (l *Lockfile) TryLock() (bool, error) {
+	if err := l.open(); err != nil {
+		return false, err
+	}
+	if err := syscall.Flock(l.fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		if err == syscall.EWOULDBLOCK {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // Lock acquires an exclusive lock for the Lockfile's path. Only one process /

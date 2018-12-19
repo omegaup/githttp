@@ -335,6 +335,16 @@ func handleBrowse(
 	}
 	defer repository.Free()
 
+	lockfile := NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info("Waiting for the lockfile", "err", err)
+		if err := lockfile.RLock(); err != nil {
+			log.Crit("Failed to acquire the lockfile", "err", err)
+			return err
+		}
+	}
+	defer lockfile.Unlock()
+
 	var result interface{}
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
 		result, err = handleRefs(repository, level)

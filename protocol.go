@@ -158,6 +158,7 @@ func NewGitProtocol(
 func (p *GitProtocol) PushPackfile(
 	ctx context.Context,
 	repository *git.Repository,
+	lockfile *Lockfile,
 	level AuthorizationLevel,
 	commands []*GitCommand,
 	r io.Reader,
@@ -240,6 +241,14 @@ func (p *GitProtocol) PushPackfile(
 	if err != nil {
 		p.log.Error("Preprocessing failed", "err", err)
 		return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
+	}
+
+	if ok, err := lockfile.TryLock(); !ok {
+		p.log.Info("Waiting for the lockfile", "err", err)
+		if err := lockfile.Lock(); err != nil {
+			p.log.Crit("Failed to acquire the lockfile", "err", err)
+			return nil, err, nil
+		}
 	}
 
 	err = commitPackfile(packPath, writepack)
@@ -431,6 +440,16 @@ func handleInfoRefs(
 	}
 	defer repository.Free()
 
+	lockfile := NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info("Waiting for the lockfile", "err", err)
+		if err := lockfile.RLock(); err != nil {
+			log.Crit("Failed to acquire the lockfile", "err", err)
+			return err
+		}
+	}
+	defer lockfile.Unlock()
+
 	it, err := repository.NewReferenceIterator()
 	if err != nil {
 		log.Error("Error reading references", "err", err)
@@ -549,6 +568,16 @@ func handlePull(
 		return err
 	}
 	defer repository.Free()
+
+	lockfile := NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info("Waiting for the lockfile", "err", err)
+		if err := lockfile.RLock(); err != nil {
+			log.Crit("Failed to acquire the lockfile", "err", err)
+			return err
+		}
+	}
+	defer lockfile.Unlock()
 
 	pb, err := repository.NewPackbuilder()
 	if err != nil {
@@ -782,6 +811,16 @@ func handlePush(
 	}
 	defer repository.Free()
 
+	lockfile := NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info("Waiting for the lockfile", "err", err)
+		if err := lockfile.RLock(); err != nil {
+			log.Crit("Failed to acquire the lockfile", "err", err)
+			return err
+		}
+	}
+	defer lockfile.Unlock()
+
 	pr := NewPktLineReader(r)
 	reportStatus := false
 	commands := make([]*GitCommand, 0)
@@ -841,6 +880,7 @@ func handlePush(
 	_, err, unpackErr := protocol.PushPackfile(
 		ctx,
 		repository,
+		lockfile,
 		level,
 		commands,
 		r,

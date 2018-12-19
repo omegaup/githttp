@@ -428,6 +428,9 @@ func SplitCommit(
 // that will contain split commits based on the provided array of
 // SplitCommitDescriptions and will create a merge commit based of the split
 // commits.
+//
+// Note that a lockfile is not acquired in this method since it's assumed that
+// the caller already has acquired one.
 func SpliceCommit(
 	repository *git.Repository,
 	commit, parentCommit *git.Commit,
