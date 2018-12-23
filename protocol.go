@@ -8,6 +8,7 @@ import (
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
 	base "github.com/omegaup/go-base"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -253,8 +254,7 @@ func (p *GitProtocol) PushPackfile(
 
 	err = commitPackfile(packPath, writepack)
 	if err != nil {
-		p.log.Error("Error committing packfile", "err", err)
-		return nil, err, nil
+		return nil, errors.Wrap(err, "failed to commit packfile"), nil
 	}
 
 	updatedRefs = make([]UpdatedRef, 0)
@@ -406,12 +406,12 @@ func isRestrictedRef(name string) bool {
 func commitPackfile(packPath string, writepack *git.OdbWritepack) error {
 	f, err := os.Open(packPath)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to open %s", packPath)
 	}
 	defer f.Close()
 
 	if _, err := io.Copy(writepack, f); err != nil {
-		return err
+		return errors.Wrap(err, "failed to write into the writepack")
 	}
 
 	return writepack.Commit()

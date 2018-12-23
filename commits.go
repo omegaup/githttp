@@ -1,9 +1,10 @@
 package githttp
 
 import (
-	"errors"
+	stderrors "errors"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,7 +22,7 @@ const (
 var (
 	// ErrObjectLimitExceeded is the error that's returned when a git tree has
 	// more objects than ObjectLimit.
-	ErrObjectLimitExceeded = errors.New("Tree exceeded object limit")
+	ErrObjectLimitExceeded = stderrors.New("Tree exceeded object limit")
 )
 
 type mergeEntry struct {
@@ -243,27 +244,47 @@ func SplitTree(
 	}
 
 	for name, subpaths := range children {
-		originalEntry, err := originalTree.EntryByPath(name)
-		if err != nil {
-			log.Error("Error looking up original tree", "path", name, "err", err)
-			return nil, err
-		}
-		originalSubtree, err := originalRepository.LookupTree(originalEntry.Id)
-		if err != nil {
-			log.Error("Error looking up original tree", "path", name, "err", err)
-			return nil, err
-		}
-		defer originalSubtree.Free()
-		tree, err := SplitTree(originalSubtree, originalRepository, subpaths, repository, log)
-		if err != nil {
-			log.Error("Error creating originalSubtree", "path", name, "contents", subpaths, "err", err)
-			return nil, err
-		}
-		defer tree.Free()
+		if err := (func() error {
+			originalEntry, err := originalTree.EntryByPath(name)
+			if err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to look up original tree at %s",
+					name,
+				)
+			}
 
-		log.Debug("Creating subtree", "name", name, "contents", subpaths, "id", tree.Id().String())
-		if err = treebuilder.Insert(name, tree.Id(), originalEntry.Filemode); err != nil {
-			log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
+			originalSubtree, err := originalRepository.LookupTree(originalEntry.Id)
+			if err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to look up original tree at %s",
+					name,
+				)
+			}
+			defer originalSubtree.Free()
+
+			tree, err := SplitTree(originalSubtree, originalRepository, subpaths, repository, log)
+			if err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to create new split tree at %s (%v)",
+					name,
+					subpaths,
+				)
+			}
+			defer tree.Free()
+
+			log.Debug("Creating subtree", "name", name, "contents", subpaths, "id", tree.Id().String())
+			if err = treebuilder.Insert(name, tree.Id(), originalEntry.Filemode); err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to insert %s in treebuilder",
+					name,
+				)
+			}
+			return nil
+		})(); err != nil {
 			return nil, err
 		}
 	}
@@ -355,70 +376,73 @@ func SplitCommit(
 	}
 
 	for i, description := range descriptions {
-		newTree, err := SplitTree(
-			originalTree,
-			originalRepository,
-			treePaths[i],
-			repository,
-			log,
-		)
+		currentSplitResult, err := (func() (*SplitCommitResult, error) {
+			newTree, err := SplitTree(
+				originalTree,
+				originalRepository,
+				treePaths[i],
+				repository,
+				log,
+			)
+			if err != nil {
+				return nil, err
+			}
+			defer newTree.Free()
+
+			parentCommits := make([]*git.Oid, 0)
+			if description.ParentCommit != nil {
+				parentCommitTree, err := description.ParentCommit.Tree()
+				if err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"failed to obtain tree from parent commit %s",
+						description.ParentCommit.Id().String(),
+					)
+				}
+				defer parentCommitTree.Free()
+
+				if newTree.Id().Equal(parentCommitTree.Id()) {
+					return &SplitCommitResult{
+						CommitID: description.ParentCommit.Id(),
+						TreeID:   parentCommitTree.Id(),
+					}, nil
+				}
+				newParentCommit, err := repository.LookupCommit(description.ParentCommit.Id())
+				if err != nil {
+					return nil, errors.Wrapf(
+						err,
+						"failed to look up parent commit %s in new repository",
+						description.ParentCommit.Id().String(),
+					)
+				}
+				defer newParentCommit.Free()
+
+				parentCommits = append(parentCommits, newParentCommit.Id())
+			}
+
+			// This cannot use CreateCommit, since the parent commits are not yet in
+			// the repository. We are yet to create a packfile with them.
+			newCommitID, err := repository.CreateCommitFromIds(
+				"",
+				author,
+				committer,
+				commitMessage,
+				newTree.Id(),
+				parentCommits...,
+			)
+			if err != nil {
+				log.Error("Error creating commit", "tree", newTree.Id(), "err", err)
+				return nil, err
+			}
+			return &SplitCommitResult{
+				CommitID: newCommitID,
+				TreeID:   newTree.Id(),
+			}, nil
+		})()
 		if err != nil {
 			return nil, err
 		}
-		defer newTree.Free()
-
-		parentCommits := make([]*git.Oid, 0)
-		if description.ParentCommit != nil {
-			parentCommitTree, err := description.ParentCommit.Tree()
-			if err != nil {
-				log.Error(
-					"Error obtaining tree from parent commit",
-					"parent commit", *description.ParentCommit,
-					"err", err,
-				)
-				return nil, err
-			}
-			defer parentCommitTree.Free()
-
-			if newTree.Id().Equal(parentCommitTree.Id()) {
-				splitResult = append(splitResult, SplitCommitResult{
-					CommitID: description.ParentCommit.Id(),
-					TreeID:   parentCommitTree.Id(),
-				})
-				continue
-			}
-			newParentCommit, err := repository.LookupCommit(description.ParentCommit.Id())
-			if err != nil {
-				log.Error(
-					"Error obtaining parent commit",
-					"parent commit", *description.ParentCommit,
-					"err", err,
-				)
-				return nil, err
-			}
-			defer newParentCommit.Free()
-
-			parentCommits = append(parentCommits, newParentCommit.Id())
-		}
-
-		// This cannot use CreateCommit, since the parent commits are not yet in
-		// the repository. We are yet to create a packfile with them.
-		newCommitID, err := repository.CreateCommitFromIds(
-			"",
-			author,
-			committer,
-			commitMessage,
-			newTree.Id(),
-			parentCommits...,
-		)
-		if err != nil {
-			log.Error("Error creating commit", "tree", newTree.Id(), "err", err)
-			return nil, err
-		}
-		splitResult = append(splitResult, SplitCommitResult{
-			CommitID: newCommitID,
-			TreeID:   newTree.Id(),
-		})
+		splitResult = append(splitResult, *currentSplitResult)
 	}
 
 	return splitResult, nil
@@ -742,16 +766,27 @@ func BuildTree(
 	}
 
 	for name, subfiles := range children {
-		tree, err := BuildTree(repository, subfiles, log)
-		if err != nil {
-			log.Error("Error creating subtree", "path", name, "subfiles", subfiles, "err", err)
-			return nil, err
-		}
-		defer tree.Free()
+		if err := (func() error {
+			tree, err := BuildTree(repository, subfiles, log)
+			if err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to create subtree %s with files %v",
+					name,
+					subfiles,
+				)
+			}
+			defer tree.Free()
 
-		if err = treebuilder.Insert(name, tree.Id(), 040000); err != nil {
-			log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
-
+			if err = treebuilder.Insert(name, tree.Id(), 040000); err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to insert %s in treebuilder",
+					name,
+				)
+			}
+			return nil
+		})(); err != nil {
 			return nil, err
 		}
 	}
