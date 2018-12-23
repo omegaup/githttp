@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -178,7 +179,7 @@ func (p *GitProtocol) PushPackfile(
 	}
 	defer writepack.Free()
 
-	tmpDir, err := ioutil.TempDir("", "packfile")
+	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("packfile_%s", path.Base(repository.Path())))
 	if err != nil {
 		p.log.Error("Failed to create temp directory", "err", err)
 		return nil, err, err
