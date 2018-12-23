@@ -2,6 +2,7 @@ package githttp
 
 import (
 	stderrors "errors"
+	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
 	"github.com/pkg/errors"
@@ -485,13 +486,29 @@ func SpliceCommit(
 	}
 	defer odb.Free()
 
-	mempack, err := git.NewMempack(odb)
+	looseObjectsDir, err := ioutil.TempDir("", fmt.Sprintf("loose_objects_%s", path.Base(repository.Path())))
 	if err != nil {
-		log.Error("Error creating git mempack", "err", err)
-		return nil, err
+		return nil, errors.Wrap(
+			err,
+			"failed to create temporary directory for loose objects",
+		)
 	}
-	defer mempack.Reset()
-	defer mempack.Free()
+	defer os.RemoveAll(looseObjectsDir)
+
+	looseObjectsBackend, err := git.NewOdbBackendLoose(looseObjectsDir, -1, false, 0, 0)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			"failed to create new loose object backend",
+		)
+	}
+	if err := odb.AddBackend(looseObjectsBackend, 999); err != nil {
+		looseObjectsBackend.Free()
+		return nil, errors.Wrap(
+			err,
+			"failed to register loose object backend",
+		)
+	}
 
 	originalTree, err := commit.Tree()
 	if err != nil {
