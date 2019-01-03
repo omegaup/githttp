@@ -314,7 +314,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeHeader(w, err)
 			return
 		}
-	} else if r.Method == "GET" && h.enableBrowse {
+	} else if (r.Method == "GET" || r.Method == "HEAD") && h.enableBrowse {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationBrowse)
 		if level == AuthorizationDenied {
 			return
@@ -329,7 +329,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cleanedPath += "/"
 		}
 		w.Header().Set("Content-Type", "text/json")
-		if err := handleBrowse(repositoryPath, level, cleanedPath, h.log, w); err != nil {
+		if err := handleBrowse(repositoryPath, level, r.Method, cleanedPath, h.log, w); err != nil {
 			writeHeader(w, err)
 			return
 		}

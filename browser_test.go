@@ -15,7 +15,7 @@ func TestHandleRefs(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleRefs(repository, AuthorizationAllowed)
+	result, err := handleRefs(repository, AuthorizationAllowed, "GET")
 	if err != nil {
 		t.Fatalf("Error getting the list of refs: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestHandleRestrictedRefs(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleRefs(repository, AuthorizationAllowedRestricted)
+	result, err := handleRefs(repository, AuthorizationAllowedRestricted, "GET")
 	if err != nil {
 		t.Fatalf("Error getting the list of refs: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestHandleLog(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleLog(repository, "/+log/")
+	result, err := handleLog(repository, "/+log/", "GET")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -123,7 +123,7 @@ func TestHandleLogCommit(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleLog(repository, "/+log/88aa3454adb27c3c343ab57564d962a0a7f6a3c1")
+	result, err := handleLog(repository, "/+log/88aa3454adb27c3c343ab57564d962a0a7f6a3c1", "GET")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -160,7 +160,7 @@ func TestHandleShowCommit(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1")
+	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1", "GET")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -193,7 +193,7 @@ func TestHandleShowTree(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/")
+	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/", "GET")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -221,7 +221,7 @@ func TestHandleShowBlob(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/empty")
+	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/empty", "GET")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -257,7 +257,7 @@ func TestHandleNotFound(t *testing.T) {
 	for _, path := range paths {
 		var buf bytes.Buffer
 
-		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, path, log, &buf)
+		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, "GET", path, log, &buf)
 		if err != ErrNotFound {
 			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", path, err, buf.String())
 		}

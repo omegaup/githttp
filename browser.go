@@ -169,6 +169,7 @@ func formatBlob(
 func handleRefs(
 	repository *git.Repository,
 	level AuthorizationLevel,
+	method string,
 ) (RefsResult, error) {
 	it, err := repository.NewReferenceIterator()
 	if err != nil {
@@ -221,6 +222,7 @@ func handleRefs(
 func handleLog(
 	repository *git.Repository,
 	requestPath string,
+	method string,
 ) (*LogResult, error) {
 	splitPath := strings.SplitN(requestPath, "/", 3)
 	if len(splitPath) < 2 {
@@ -238,6 +240,11 @@ func handleLog(
 	if obj.Type() != git.ObjectCommit {
 		return nil, ErrNotFound
 	}
+
+	if method == "HEAD" {
+		return nil, nil
+	}
+
 	walk, err := repository.Walk()
 	if err != nil {
 		return nil, err
@@ -269,6 +276,7 @@ func handleLog(
 func handleShow(
 	repository *git.Repository,
 	requestPath string,
+	method string,
 ) (interface{}, error) {
 	splitPath := strings.SplitN(requestPath, "/", 4)
 	if len(splitPath) < 3 {
@@ -300,6 +308,11 @@ func handleShow(
 		return nil, ErrNotFound
 	}
 	defer obj.Free()
+
+	if method == "HEAD" {
+		return nil, nil
+	}
+
 	if obj.Type() == git.ObjectTree {
 		tree, err := obj.AsTree()
 		if err != nil {
@@ -324,6 +337,7 @@ func handleShow(
 func handleBrowse(
 	repositoryPath string,
 	level AuthorizationLevel,
+	method string,
 	requestPath string,
 	log log15.Logger,
 	w io.Writer,
@@ -347,22 +361,26 @@ func handleBrowse(
 
 	var result interface{}
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
-		result, err = handleRefs(repository, level)
+		result, err = handleRefs(repository, level, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+log/") {
-		result, err = handleLog(repository, requestPath)
+		result, err = handleLog(repository, requestPath, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+/") {
-		result, err = handleShow(repository, requestPath)
+		result, err = handleShow(repository, requestPath, method)
 		if err != nil {
 			return err
 		}
 	} else {
 		return ErrNotFound
+	}
+
+	if method == "HEAD" {
+		return nil
 	}
 
 	encoder := json.NewEncoder(w)
