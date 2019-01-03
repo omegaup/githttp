@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
-	"io"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -15,7 +16,7 @@ import (
 const (
 	// BlobDisplayMaxSize is the maximum size that a blob can be in order to
 	// display it.
-	BlobDisplayMaxSize = 10 * 1024
+	BlobDisplayMaxSize = 1 * 1024 * 1024
 )
 
 // A RefResult represents a single reference in a git repository.
@@ -277,6 +278,7 @@ func handleShow(
 	repository *git.Repository,
 	requestPath string,
 	method string,
+	acceptMIMEType string,
 ) (interface{}, error) {
 	splitPath := strings.SplitN(requestPath, "/", 4)
 	if len(splitPath) < 3 {
@@ -328,6 +330,10 @@ func handleShow(
 		}
 		defer blob.Free()
 
+		if acceptMIMEType == "application/octet-stream" {
+			return blob.Contents(), nil
+		}
+
 		return formatBlob(blob), nil
 	}
 
@@ -338,9 +344,10 @@ func handleBrowse(
 	repositoryPath string,
 	level AuthorizationLevel,
 	method string,
+	acceptMIMEType string,
 	requestPath string,
 	log log15.Logger,
-	w io.Writer,
+	w http.ResponseWriter,
 ) error {
 	repository, err := git.OpenRepository(repositoryPath)
 	if err != nil {
@@ -371,7 +378,7 @@ func handleBrowse(
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+/") {
-		result, err = handleShow(repository, requestPath, method)
+		result, err = handleShow(repository, requestPath, method, acceptMIMEType)
 		if err != nil {
 			return err
 		}
@@ -383,6 +390,12 @@ func handleBrowse(
 		return nil
 	}
 
+	if rawBytes, ok := result.([]byte); ok {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Length", strconv.Itoa(len(rawBytes)))
+		_, err := w.Write(rawBytes)
+		return err
+	}
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)

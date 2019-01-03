@@ -1,9 +1,9 @@
 package githttp
 
 import (
-	"bytes"
 	git "github.com/lhchavez/git2go"
 	base "github.com/omegaup/go-base"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 )
@@ -160,7 +160,7 @@ func TestHandleShowCommit(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1", "GET")
+	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1", "GET", "")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -193,7 +193,7 @@ func TestHandleShowTree(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/", "GET")
+	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/", "GET", "")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -221,7 +221,7 @@ func TestHandleShowBlob(t *testing.T) {
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/empty", "GET")
+	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/empty", "GET", "")
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -255,11 +255,11 @@ func TestHandleNotFound(t *testing.T) {
 		"/+log/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", // Valid ref, but is not a commit.
 	}
 	for _, path := range paths {
-		var buf bytes.Buffer
+		w := httptest.NewRecorder()
 
-		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, "GET", path, log, &buf)
+		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, "GET", "application/json", path, log, w)
 		if err != ErrNotFound {
-			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", path, err, buf.String())
+			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", path, err, w.Body.String())
 		}
 	}
 }
