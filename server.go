@@ -328,7 +328,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if trailingSlash && !strings.HasSuffix(cleanedPath, "/") {
 			cleanedPath += "/"
 		}
-		w.Header().Set("Content-Type", "text/json")
+		w.Header().Set("Content-Type", "application/json")
 		if err := handleBrowse(repositoryPath, level, r.Method, cleanedPath, h.log, w); err != nil {
 			writeHeader(w, err)
 			return
