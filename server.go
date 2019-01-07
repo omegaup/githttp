@@ -29,14 +29,20 @@ const (
 )
 
 var (
-	// ErrNotFound is returned if a reference is not found.
-	ErrNotFound = stderrors.New("not found")
+	// ErrBadRequest is returned when the client sends a bad request. HTTP 400
+	// will be returned to http clients.
+	ErrBadRequest = stderrors.New("bad-request")
+
+	// ErrForbidden is returned if an operation is not allowed. HTTP 403 will be
+	// returned to http clients.
+	ErrForbidden = stderrors.New("forbidden")
+
+	// ErrNotFound is returned if a reference is not found. HTTP 404 will be
+	// returned to http clients.
+	ErrNotFound = stderrors.New("not-found")
 
 	// ErrDeleteDisallowed is returned when a delete operation is attempted.
 	ErrDeleteDisallowed = stderrors.New("delete-disallowed")
-
-	// ErrForbidden is returned if an operation is not allowed.
-	ErrForbidden = stderrors.New("forbidden")
 
 	// ErrInvalidRef is returned if a reference that the system does not support
 	// is attempted to be modified.
@@ -190,20 +196,35 @@ func noopContextCallback(ctx context.Context) context.Context {
 	return ctx
 }
 
-// writeHeader clears any pending headers from the reply and sets the HTTP
-// status code.
-func writeHeader(w http.ResponseWriter, err error) {
-	for k := range w.Header() {
-		w.Header().Del(k)
+// WriteHeader sets the HTTP status code and optionally clears any pending
+// headers from the reply. It also returns the cause of the HTTP error.
+func WriteHeader(w http.ResponseWriter, err error, clearHeaders bool) error {
+	if clearHeaders {
+		for k := range w.Header() {
+			w.Header().Del(k)
+		}
 	}
 	if base.HasErrorCategory(err, ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
+		if cause := base.UnwrapCauseFromErrorCategory(err, ErrBadRequest); cause != nil {
+			return cause
+		}
+		return err
 	} else if base.HasErrorCategory(err, ErrNotFound) {
 		w.WriteHeader(http.StatusNotFound)
+		if cause := base.UnwrapCauseFromErrorCategory(err, ErrNotFound); cause != nil {
+			return cause
+		}
+		return err
 	} else if base.HasErrorCategory(err, ErrForbidden) {
 		w.WriteHeader(http.StatusForbidden)
+		if cause := base.UnwrapCauseFromErrorCategory(err, ErrForbidden); cause != nil {
+			return cause
+		}
+		return err
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
+		return err
 	}
 }
 
@@ -258,7 +279,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
-			writeHeader(w, err)
+			WriteHeader(w, err, true)
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-upload-pack" {
@@ -270,7 +291,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePull(repositoryPath, level, h.log, r.Body, w); err != nil {
-			writeHeader(w, err)
+			WriteHeader(w, err, true)
 			return
 		}
 	} else if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
@@ -280,14 +301,14 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
-			writeHeader(w, ErrForbidden)
+			WriteHeader(w, ErrForbidden, true)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
-			writeHeader(w, err)
+			WriteHeader(w, err, true)
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-receive-pack" {
@@ -296,7 +317,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
-			writeHeader(w, ErrForbidden)
+			WriteHeader(w, ErrForbidden, true)
 			return
 		}
 
@@ -311,7 +332,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			r.Body,
 			w,
 		); err != nil {
-			writeHeader(w, err)
+			WriteHeader(w, err, true)
 			return
 		}
 	} else if (r.Method == "GET" || r.Method == "HEAD") && h.enableBrowse {
@@ -338,7 +359,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.log,
 			w,
 		); err != nil {
-			writeHeader(w, err)
+			WriteHeader(w, err, true)
 			return
 		}
 	} else {

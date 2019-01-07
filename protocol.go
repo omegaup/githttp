@@ -3,7 +3,6 @@ package githttp
 import (
 	"bytes"
 	"context"
-	stderrors "errors"
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
@@ -27,10 +26,6 @@ const (
 )
 
 var (
-	// ErrBadRequest is returned whtn the client sends a bad request. HTTP 400
-	// will be returned to http clients.
-	ErrBadRequest = stderrors.New("bad request")
-
 	pullCapabilities = Capabilities{"agent=gohttp", "allow-tip-sha1-in-want", "ofs-delta", "shallow", "thin-pack"}
 	pushCapabilities = Capabilities{"agent=gohttp", "atomic", "ofs-delta", "report-status"}
 )
@@ -200,6 +195,8 @@ func (p *GitProtocol) PushPackfile(
 				command.err = ErrUnknownCommit
 			} else {
 				command.logMessage = commit.Summary()
+				// These error don't need wrapping since they are presented in the
+				// context of the ref they refer to.
 				if !validateFastForward(repository, commit, command.Reference) {
 					command.err = ErrNonFastForward
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
