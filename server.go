@@ -230,11 +230,12 @@ func WriteHeader(w http.ResponseWriter, err error, clearHeaders bool) error {
 
 // A gitHTTPHandler implements git's smart protocol.
 type gitHTTPHandler struct {
-	rootPath        string
-	enableBrowse    bool
-	contextCallback ContextCallback
-	protocol        *GitProtocol
-	log             log15.Logger
+	rootPath         string
+	repositorySuffix string
+	enableBrowse     bool
+	contextCallback  ContextCallback
+	protocol         *GitProtocol
+	log              log15.Logger
 }
 
 func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -256,7 +257,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := h.contextCallback(r.Context())
 
-	repositoryPath := path.Join(h.rootPath, fmt.Sprintf("%s.git", repositoryName))
+	repositoryPath := path.Join(h.rootPath, fmt.Sprintf("%s%s", repositoryName, h.repositorySuffix))
 	h.log.Info(
 		"Request",
 		"Method", r.Method,
@@ -374,6 +375,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // additional authorization and pre-upload checks.
 func GitServer(
 	rootPath string,
+	repositorySuffix string,
 	enableBrowse bool,
 	protocol *GitProtocol,
 	contextCallback ContextCallback,
@@ -384,10 +386,11 @@ func GitServer(
 	}
 
 	return &gitHTTPHandler{
-		rootPath:        rootPath,
-		enableBrowse:    enableBrowse,
-		contextCallback: contextCallback,
-		protocol:        protocol,
-		log:             log,
+		rootPath:         rootPath,
+		repositorySuffix: repositorySuffix,
+		enableBrowse:     enableBrowse,
+		contextCallback:  contextCallback,
+		protocol:         protocol,
+		log:              log,
 	}
 }
