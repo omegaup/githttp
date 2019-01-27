@@ -1,6 +1,8 @@
 package githttp
 
 import (
+	"archive/zip"
+	"bytes"
 	git "github.com/lhchavez/git2go"
 	base "github.com/omegaup/go-base"
 	"net/http/httptest"
@@ -60,6 +62,30 @@ func TestHandleRestrictedRefs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expected, result) {
 		t.Errorf("Expected %s, got %s", expected, result)
+	}
+}
+
+func TestHandleArchiveCommit(t *testing.T) {
+	repository, err := git.OpenRepository("testdata/repo.git")
+	if err != nil {
+		t.Fatalf("Error opening git repository: %v", err)
+	}
+	defer repository.Free()
+
+	response := httptest.NewRecorder()
+	if err := handleArchive(repository, "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.zip", "GET", response); err != nil {
+		t.Fatalf("Error getting archive: %v", err)
+	}
+
+	z, err := zip.NewReader(bytes.NewReader(response.Body.Bytes()), int64(response.Body.Len()))
+	if err != nil {
+		t.Fatalf("Error opening zip from response: %v", err)
+	}
+
+	if 1 != len(z.File) {
+		t.Errorf("Expected %d, got %d", 1, len(z.File))
+	} else if "empty" != z.File[0].Name {
+		t.Errorf("Expected %s, got %v", "empty", z.File[0])
 	}
 }
 

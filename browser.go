@@ -1,6 +1,7 @@
 package githttp
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -274,6 +276,97 @@ func handleLog(
 	return result, nil
 }
 
+func handleArchive(
+	repository *git.Repository,
+	requestPath string,
+	method string,
+	w http.ResponseWriter,
+) error {
+	splitPath := strings.SplitN(requestPath, "/", 3)
+	if len(splitPath) < 3 {
+		return ErrNotFound
+	}
+	rev := ""
+	contentType := ""
+	for extension, mimeType := range map[string]string{
+		".zip": "application/zip",
+	} {
+		if !strings.HasSuffix(splitPath[2], extension) {
+			continue
+		}
+
+		rev = strings.TrimSuffix(splitPath[2], extension)
+		contentType = mimeType
+		break
+	}
+	if rev == "" {
+		return ErrNotFound
+	}
+	obj, err := repository.RevparseSingle(rev)
+	if err != nil {
+		return ErrNotFound
+	}
+	defer obj.Free()
+	if obj.Type() != git.ObjectCommit {
+		return ErrNotFound
+	}
+
+	if method == "HEAD" {
+		return nil
+	}
+
+	commit, err := obj.AsCommit()
+	if err != nil {
+		return err
+	}
+	defer commit.Free()
+	tree, err := commit.Tree()
+	if err != nil {
+		return err
+	}
+	defer tree.Free()
+
+	w.Header().Set("Content-Type", contentType)
+	z := zip.NewWriter(w)
+	defer z.Close()
+
+	var walkErr error
+	if err := tree.Walk(func(parent string, entry *git.TreeEntry) int {
+		fullPath := path.Join(parent, entry.Name)
+		if entry.Type == git.ObjectTree {
+			_, err := z.CreateHeader(&zip.FileHeader{
+				Name: fullPath + "/",
+			})
+			if err != nil {
+				walkErr = err
+				return -1
+			}
+		} else {
+			w, err := z.Create(fullPath)
+			if err != nil {
+				walkErr = err
+				return -1
+			}
+
+			blob, err := repository.LookupBlob(entry.Id)
+			if err != nil {
+				walkErr = err
+				return -1
+			}
+			defer blob.Free()
+
+			if _, err := w.Write(blob.Contents()); err != nil {
+				walkErr = err
+				return -1
+			}
+		}
+		return 0
+	}); err != nil {
+		return err
+	}
+	return walkErr
+}
+
 func handleShow(
 	repository *git.Repository,
 	requestPath string,
@@ -377,6 +470,11 @@ func handleBrowse(
 		if err != nil {
 			return err
 		}
+	} else if strings.HasPrefix(requestPath, "/+archive/") {
+		err = handleArchive(repository, requestPath, method, w)
+		if err != nil {
+			return err
+		}
 	} else if strings.HasPrefix(requestPath, "/+/") {
 		result, err = handleShow(repository, requestPath, method, acceptMIMEType)
 		if err != nil {
@@ -386,7 +484,7 @@ func handleBrowse(
 		return ErrNotFound
 	}
 
-	if method == "HEAD" {
+	if method == "HEAD" || result == nil {
 		return nil
 	}
 
