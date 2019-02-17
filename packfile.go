@@ -175,6 +175,7 @@ func UnpackPackfile(
 		return nil, "", err
 	}
 	if err := odb.AddAlternate(backend, 1); err != nil {
+		backend.Free()
 		return nil, "", err
 	}
 	index, err := ParseIndex(indexPath, odb)

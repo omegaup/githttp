@@ -548,6 +548,7 @@ func SpliceCommit(
 			log.Error("Error creating merged override tree", "err", err)
 			return nil, err
 		}
+		defer mergedOverrideTree.Free()
 
 		var overrideCommitParents []*git.Oid
 		if parentCommit != nil {
