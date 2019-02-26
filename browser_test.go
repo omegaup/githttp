@@ -35,7 +35,7 @@ func TestHandleRefs(t *testing.T) {
 		},
 	}
 	if !reflect.DeepEqual(expected, result) {
-		t.Errorf("Expected %s, got %s", expected, result)
+		t.Errorf("Expected %v, got %v", expected, result)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestHandleRestrictedRefs(t *testing.T) {
 		},
 	}
 	if !reflect.DeepEqual(expected, result) {
-		t.Errorf("Expected %s, got %s", expected, result)
+		t.Errorf("Expected %v, got %v", expected, result)
 	}
 }
 
