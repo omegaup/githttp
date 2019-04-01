@@ -638,7 +638,9 @@ func SpliceCommit(
 				newCommands,
 				&GitCommand{
 					Old:           oldCommitID,
+					OldTree:       oldTreeID,
 					New:           splitCommit.CommitID,
+					NewTree:       splitCommit.TreeID,
 					ReferenceName: descriptions[i].ReferenceName,
 					Reference:     descriptions[i].Reference,
 					err:           nil,
@@ -680,14 +682,18 @@ func SpliceCommit(
 		return nil, err
 	}
 	var oldCommitID *git.Oid
+	var oldTreeID *git.Oid
 	if parentCommit != nil {
 		oldCommitID = parentCommit.Id()
+		oldTreeID = parentCommit.TreeId()
 	}
 	newCommands = append(
 		newCommands,
 		&GitCommand{
 			Old:           oldCommitID,
+			OldTree:       oldTreeID,
 			New:           mergedID,
+			NewTree:       mergedTree.Id(),
 			ReferenceName: referenceName,
 			Reference:     reference,
 			err:           nil,

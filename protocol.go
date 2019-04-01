@@ -59,18 +59,21 @@ func (c *Capabilities) Equal(other Capabilities) bool {
 
 // A GitCommand describes one of the smart protocol's update commands.
 type GitCommand struct {
-	Old, New      *git.Oid
-	ReferenceName string
-	Reference     *git.Reference
-	err           error
-	logMessage    string
+	Old, New         *git.Oid
+	OldTree, NewTree *git.Oid
+	ReferenceName    string
+	Reference        *git.Reference
+	err              error
+	logMessage       string
 }
 
 // An UpdatedRef describes a reference that was updated.
 type UpdatedRef struct {
-	Name string `json:"name"`
-	From string `json:"from"`
-	To   string `json:"to"`
+	Name     string `json:"name"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	FromTree string `json:"from_tree"`
+	ToTree   string `json:"to_tree"`
 }
 
 // IsCreate returns whether the command creates a ref.
@@ -100,9 +103,11 @@ func (c *GitCommand) IsFastForward() bool {
 
 func (c *GitCommand) String() string {
 	return fmt.Sprintf(
-		"{old: %s, new: %s, reference: %s}",
+		"{old: %s, oldTree: %s, new: %s, newTree: %s, reference: %s}",
 		c.Old,
+		c.OldTree,
 		c.New,
+		c.NewTree,
 		c.ReferenceName,
 	)
 }
@@ -194,6 +199,7 @@ func (p *GitProtocol) PushPackfile(
 			if err != nil {
 				command.err = ErrUnknownCommit
 			} else {
+				command.NewTree = commit.TreeId()
 				command.logMessage = commit.Summary()
 				// These error don't need wrapping since they are presented in the
 				// context of the ref they refer to.
@@ -273,13 +279,18 @@ func (p *GitProtocol) PushPackfile(
 			return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
 		}
 		updatedRef := UpdatedRef{
-			Name: command.ReferenceName,
-			To:   command.New.String(),
+			Name:   command.ReferenceName,
+			To:     command.New.String(),
+			ToTree: command.NewTree.String(),
 		}
-		if command.Old != nil {
+		if command.Old != nil && !command.Old.IsZero() {
 			updatedRef.From = command.Old.String()
+			if command.OldTree != nil {
+				updatedRef.FromTree = command.OldTree.String()
+			}
 		} else {
 			updatedRef.From = (&git.Oid{}).String()
+			updatedRef.FromTree = (&git.Oid{}).String()
 		}
 		updatedRefs = append(updatedRefs, updatedRef)
 		ref.Free()
