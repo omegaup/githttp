@@ -241,11 +241,23 @@ type gitHTTPHandler struct {
 func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	splitPath := strings.SplitN(r.URL.Path[1:], "/", 2)
 	if len(splitPath) < 2 {
+		h.log.Error(
+			"Request",
+			"Method", r.Method,
+			"path", r.URL.Path[1:],
+			"error", "not found",
+		)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	repositoryName := splitPath[0]
 	if strings.HasPrefix(repositoryName, ".") {
+		h.log.Error(
+			"Request",
+			"Method", r.Method,
+			"path", r.URL.Path[1:],
+			"error", "repository path starts with .",
+		)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -258,13 +270,14 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := h.contextCallback(r.Context())
 
 	repositoryPath := path.Join(h.rootPath, fmt.Sprintf("%s%s", repositoryName, h.repositorySuffix))
-	h.log.Info(
-		"Request",
-		"Method", r.Method,
-		"URL", relativeURL,
-		"path", repositoryPath,
-	)
 	if _, err := os.Stat(repositoryPath); os.IsNotExist(err) {
+		h.log.Error(
+			"Request",
+			"Method", r.Method,
+			"URL", relativeURL,
+			"path", repositoryPath,
+			"error", err,
+		)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -274,24 +287,52 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		serviceName == "git-upload-pack" {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "authorization denied",
+			)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", err,
+			)
 			WriteHeader(w, err, true)
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-upload-pack" {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "authorization denied",
+			)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePull(repositoryPath, level, h.log, r.Body, w); err != nil {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", err,
+			)
 			WriteHeader(w, err, true)
 			return
 		}
@@ -299,9 +340,23 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		serviceName == "git-receive-pack" {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "authorization denied",
+			)
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "insufficient permissions to modify repository",
+			)
 			WriteHeader(w, ErrForbidden, true)
 			return
 		}
@@ -309,15 +364,36 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", err,
+			)
 			WriteHeader(w, err, true)
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-receive-pack" {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "authorization denied",
+			)
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "insufficient permissions to modify repository",
+			)
 			WriteHeader(w, ErrForbidden, true)
 			return
 		}
@@ -333,17 +409,38 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			r.Body,
 			w,
 		); err != nil {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", err,
+			)
 			WriteHeader(w, err, true)
 			return
 		}
 	} else if (r.Method == "GET" || r.Method == "HEAD") && h.enableBrowse {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationBrowse)
 		if level == AuthorizationDenied {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "authorization denied",
+			)
 			return
 		}
 		trailingSlash := strings.HasSuffix(relativeURL.Path, "/")
 		cleanedPath := path.Clean(relativeURL.Path)
 		if strings.HasPrefix(cleanedPath, ".") {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", "path starts with .",
+			)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -360,12 +457,34 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.log,
 			w,
 		); err != nil {
+			h.log.Error(
+				"Request",
+				"Method", r.Method,
+				"URL", relativeURL,
+				"path", repositoryPath,
+				"error", err,
+			)
 			WriteHeader(w, err, true)
 			return
 		}
 	} else {
+		h.log.Error(
+			"Request",
+			"Method", r.Method,
+			"URL", relativeURL,
+			"path", repositoryPath,
+			"error", "not found",
+		)
 		w.WriteHeader(http.StatusNotFound)
+		return
 	}
+
+	h.log.Info(
+		"Request",
+		"Method", r.Method,
+		"URL", relativeURL,
+		"path", repositoryPath,
+	)
 }
 
 // GitServer returns an http.Handler that implements git's smart protocol,

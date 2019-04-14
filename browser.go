@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
+	base "github.com/omegaup/go-base"
+	"github.com/pkg/errors"
 	"net/http"
 	"path"
 	"strconv"
@@ -176,7 +178,10 @@ func handleRefs(
 ) (RefsResult, error) {
 	it, err := repository.NewReferenceIterator()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(
+			err,
+			"failed to create a reference iterator",
+		)
 	}
 	defer it.Free()
 
@@ -197,7 +202,10 @@ func handleRefs(
 			if git.IsErrorCode(err, git.ErrIterOver) {
 				break
 			}
-			return nil, err
+			return nil, errors.Wrap(
+				err,
+				"failed to get an entry from the reference iterator",
+			)
 		}
 		defer ref.Free()
 
@@ -209,7 +217,12 @@ func handleRefs(
 			refResult.Target = ref.SymbolicTarget()
 			target, err := ref.Resolve()
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(
+					err,
+					"failed to resolve the symbolic target for %s(%s)",
+					ref.Name(),
+					ref.Target(),
+				)
 			}
 			defer target.Free()
 			refResult.Value = target.Target().String()
@@ -229,7 +242,10 @@ func handleLog(
 ) (*LogResult, error) {
 	splitPath := strings.SplitN(requestPath, "/", 3)
 	if len(splitPath) < 2 {
-		return nil, ErrNotFound
+		return nil, base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Errorf("invalid path: %s", requestPath),
+		)
 	}
 	rev := "HEAD"
 	if len(splitPath) == 3 && len(splitPath[2]) != 0 {
@@ -237,11 +253,26 @@ func handleLog(
 	}
 	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Wrapf(
+				err,
+				"failed to parse revision %s",
+				rev,
+			),
+		)
 	}
 	defer obj.Free()
 	if obj.Type() != git.ObjectCommit {
-		return nil, ErrNotFound
+		return nil, base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Wrapf(
+				err,
+				"revision %s is not a commit: %v",
+				rev,
+				obj.Type(),
+			),
+		)
 	}
 
 	if method == "HEAD" {
@@ -250,17 +281,23 @@ func handleLog(
 
 	walk, err := repository.Walk()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(
+			err,
+			"failed to create the repository revwalk",
+		)
 	}
 	defer walk.Free()
 	walk.SimplifyFirstParent()
 	if err = walk.Push(obj.Id()); err != nil {
-		return nil, err
+		return nil, errors.Wrap(
+			err,
+			"failed to add the original object to the revwalk",
+		)
 	}
 	result := &LogResult{
 		Log: make([]*CommitResult, 0),
 	}
-	err = walk.Iterate(func(commit *git.Commit) bool {
+	if err := walk.Iterate(func(commit *git.Commit) bool {
 		defer commit.Free()
 		if len(result.Log) > 100 {
 			result.Next = commit.Id().String()
@@ -268,9 +305,11 @@ func handleLog(
 		}
 		result.Log = append(result.Log, formatCommit(commit))
 		return true
-	})
-	if err != nil {
-		return nil, err
+	}); err != nil {
+		return nil, errors.Wrap(
+			err,
+			"failed to walk the repository",
+		)
 	}
 
 	return result, nil
@@ -284,7 +323,10 @@ func handleArchive(
 ) error {
 	splitPath := strings.SplitN(requestPath, "/", 3)
 	if len(splitPath) < 3 {
-		return ErrNotFound
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Errorf("invalid path: %s", requestPath),
+		)
 	}
 	rev := ""
 	contentType := ""
@@ -300,15 +342,33 @@ func handleArchive(
 		break
 	}
 	if rev == "" {
-		return ErrNotFound
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.New("empty revision"),
+		)
 	}
 	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
-		return ErrNotFound
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Wrapf(
+				err,
+				"failed to parse revision %s",
+				rev,
+			),
+		)
 	}
 	defer obj.Free()
 	if obj.Type() != git.ObjectCommit {
-		return ErrNotFound
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Wrapf(
+				err,
+				"revision %s is not a commit: %v",
+				rev,
+				obj.Type(),
+			),
+		)
 	}
 
 	if method == "HEAD" {
@@ -317,12 +377,19 @@ func handleArchive(
 
 	commit, err := obj.AsCommit()
 	if err != nil {
-		return err
+		return errors.Wrapf(
+			err,
+			"failed to get object for %s",
+			rev,
+		)
 	}
 	defer commit.Free()
 	tree, err := commit.Tree()
 	if err != nil {
-		return err
+		return errors.Wrap(
+			err,
+			"failed to get the commit's tree",
+		)
 	}
 	defer tree.Free()
 
@@ -338,31 +405,50 @@ func handleArchive(
 				Name: fullPath + "/",
 			})
 			if err != nil {
-				walkErr = err
+				walkErr = errors.Wrap(
+					err,
+					"failed to create zip header",
+				)
 				return -1
 			}
-		} else {
-			w, err := z.Create(fullPath)
-			if err != nil {
-				walkErr = err
-				return -1
-			}
+			return 0
+		}
 
-			blob, err := repository.LookupBlob(entry.Id)
-			if err != nil {
-				walkErr = err
-				return -1
-			}
-			defer blob.Free()
+		// Object is a blob.
+		w, err := z.Create(fullPath)
+		if err != nil {
+			walkErr = errors.Wrap(
+				err,
+				"failed to create zip writer",
+			)
+			return -1
+		}
 
-			if _, err := w.Write(blob.Contents()); err != nil {
-				walkErr = err
-				return -1
-			}
+		blob, err := repository.LookupBlob(entry.Id)
+		if err != nil {
+			walkErr = errors.Wrapf(
+				err,
+				"failed to lookup object %s",
+				entry.Id,
+			)
+			return -1
+		}
+		defer blob.Free()
+
+		if _, err := w.Write(blob.Contents()); err != nil {
+			walkErr = errors.Wrapf(
+				err,
+				"failed to write object %s",
+				entry.Id,
+			)
+			return -1
 		}
 		return 0
 	}); err != nil {
-		return err
+		return errors.Wrap(
+			err,
+			"failed to walk the repository",
+		)
 	}
 	return walkErr
 }
@@ -375,22 +461,44 @@ func handleShow(
 ) (interface{}, error) {
 	splitPath := strings.SplitN(requestPath, "/", 4)
 	if len(splitPath) < 3 {
-		return nil, ErrNotFound
+		return nil, base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Errorf("invalid path: %s", requestPath),
+		)
 	}
 	rev := splitPath[2]
 	if len(splitPath) == 3 {
 		// Show commit
 		obj, err := repository.RevparseSingle(rev)
 		if err != nil {
-			return nil, ErrNotFound
+			return nil, base.ErrorWithCategory(
+				ErrNotFound,
+				errors.Wrapf(
+					err,
+					"failed to parse revision %s",
+					rev,
+				),
+			)
 		}
 		defer obj.Free()
 		if obj.Type() != git.ObjectCommit {
-			return nil, ErrNotFound
+			return nil, base.ErrorWithCategory(
+				ErrNotFound,
+				errors.Wrapf(
+					err,
+					"revision %s is not a commit: %v",
+					rev,
+					obj.Type(),
+				),
+			)
 		}
 		commit, err := obj.AsCommit()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(
+				err,
+				"failed to get the commit for %s",
+				rev,
+			)
 		}
 		defer commit.Free()
 
@@ -398,9 +506,17 @@ func handleShow(
 	}
 
 	// Show path
-	obj, err := repository.RevparseSingle(fmt.Sprintf("%s:%s", rev, splitPath[3]))
+	rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
+	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Wrapf(
+				err,
+				"failed to parse revision %s",
+				rev,
+			),
+		)
 	}
 	defer obj.Free()
 
@@ -411,7 +527,11 @@ func handleShow(
 	if obj.Type() == git.ObjectTree {
 		tree, err := obj.AsTree()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(
+				err,
+				"failed to get tree for %s",
+				rev,
+			)
 		}
 		defer tree.Free()
 
@@ -419,7 +539,11 @@ func handleShow(
 	} else if obj.Type() == git.ObjectBlob {
 		blob, err := obj.AsBlob()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(
+				err,
+				"failed to get blob for %s",
+				rev,
+			)
 		}
 		defer blob.Free()
 
@@ -430,7 +554,14 @@ func handleShow(
 		return formatBlob(blob), nil
 	}
 
-	return nil, ErrNotFound
+	return nil, base.ErrorWithCategory(
+		ErrNotFound,
+		errors.Errorf(
+			"invalid show action for object type %s for revision %s",
+			obj.Type(),
+			rev,
+		),
+	)
 }
 
 func handleBrowse(
@@ -444,8 +575,10 @@ func handleBrowse(
 ) error {
 	repository, err := git.OpenRepository(repositoryPath)
 	if err != nil {
-		log.Error("Error opening git repository", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to open git repository",
+		)
 	}
 	defer repository.Free()
 
@@ -481,7 +614,13 @@ func handleBrowse(
 			return err
 		}
 	} else {
-		return ErrNotFound
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Errorf(
+				"handler not found for path %s",
+				requestPath,
+			),
+		)
 	}
 
 	if method == "HEAD" || result == nil {

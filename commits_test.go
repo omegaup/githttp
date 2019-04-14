@@ -215,7 +215,7 @@ func TestMergeTrees(t *testing.T) {
 		}
 		defer expectedTree.Free()
 
-		tree, err := MergeTrees(repo, log, sourceTrees...)
+		tree, err := MergeTrees(repo, sourceTrees...)
 		if err != nil {
 			t.Fatalf("Failed to build merged tree for %v, %v: %v", entry, entry.result, err)
 		}

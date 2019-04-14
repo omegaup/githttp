@@ -167,21 +167,21 @@ func (p *GitProtocol) PushPackfile(
 ) (updatedRefs []UpdatedRef, err, unpackErr error) {
 	odb, err := repository.Odb()
 	if err != nil {
-		p.log.Error("Error opening git odb", "err", err)
+		err = errors.Wrap(err, "failed to open git odb")
 		return nil, err, err
 	}
 	defer odb.Free()
 
 	writepack, err := odb.NewWritePack(nil)
 	if err != nil {
-		p.log.Error("Error creating writepack", "err", err)
+		err = errors.Wrap(err, "failed to create writepack")
 		return nil, err, err
 	}
 	defer writepack.Free()
 
 	tmpDir, err := ioutil.TempDir("", fmt.Sprintf("packfile_%s", path.Base(repository.Path())))
 	if err != nil {
-		p.log.Error("Failed to create temp directory", "err", err)
+		err = errors.Wrap(err, "failed to create temporary directory")
 		return nil, err, err
 	}
 	defer os.RemoveAll(tmpDir)
@@ -189,7 +189,7 @@ func (p *GitProtocol) PushPackfile(
 	_, packPath, err := UnpackPackfile(odb, r, tmpDir, nil)
 
 	if err != nil {
-		p.log.Error("Error unpacking", "err", err)
+		err = errors.Wrap(err, "failed to unpack")
 		return nil, err, err
 	}
 
@@ -219,7 +219,6 @@ func (p *GitProtocol) PushPackfile(
 						parentCommit,
 						commit,
 					); err != nil {
-						p.log.Error("Update validation failed", "command", command, "err", err)
 						command.err = err
 					}
 					if parentCommit != nil {
@@ -230,7 +229,6 @@ func (p *GitProtocol) PushPackfile(
 			}
 		}
 		if command.err != nil {
-			p.log.Error("Command status not ok", "err", command.err)
 			return nil, base.ErrorWithCategory(ErrBadRequest, command.err), nil
 		}
 	}
@@ -244,15 +242,16 @@ func (p *GitProtocol) PushPackfile(
 		originalCommands,
 	)
 	if err != nil {
-		p.log.Error("Preprocessing failed", "err", err)
 		return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
 	}
 
 	if ok, err := lockfile.TryLock(); !ok {
 		p.log.Info("Waiting for the lockfile", "err", err)
 		if err := lockfile.Lock(); err != nil {
-			p.log.Crit("Failed to acquire the lockfile", "err", err)
-			return nil, err, nil
+			return nil, errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			), nil
 		}
 	}
 
@@ -270,13 +269,12 @@ func (p *GitProtocol) PushPackfile(
 			command.logMessage,
 		)
 		if err != nil {
-			p.log.Error(
-				"Error updating reference",
-				"reference", command.ReferenceName,
-				"err", err,
-			)
 			command.err = err
-			return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
+			return nil, base.ErrorWithCategory(ErrBadRequest, errors.Wrapf(
+				err,
+				"failed to update reference %s",
+				command.ReferenceName,
+			)), nil
 		}
 		updatedRef := UpdatedRef{
 			Name:   command.ReferenceName,
@@ -444,8 +442,10 @@ func handleInfoRefs(
 ) error {
 	repository, err := git.OpenRepository(repositoryPath)
 	if err != nil {
-		log.Error("Error opening git repository", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to open git repository",
+		)
 	}
 	defer repository.Free()
 
@@ -453,23 +453,29 @@ func handleInfoRefs(
 	if ok, err := lockfile.TryRLock(); !ok {
 		log.Info("Waiting for the lockfile", "err", err)
 		if err := lockfile.RLock(); err != nil {
-			log.Crit("Failed to acquire the lockfile", "err", err)
-			return err
+			return errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			)
 		}
 	}
 	defer lockfile.Unlock()
 
 	it, err := repository.NewReferenceIterator()
 	if err != nil {
-		log.Error("Error reading references", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to read references",
+		)
 	}
 	defer it.Free()
 
 	head, err := repository.Head()
 	if err != nil && !git.IsErrorCode(err, git.ErrUnbornBranch) {
-		log.Error("Error reading head", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to read HEAD",
+		)
 	}
 	if head != nil {
 		defer head.Free()
@@ -573,8 +579,10 @@ func handlePull(
 ) error {
 	repository, err := git.OpenRepository(repositoryPath)
 	if err != nil {
-		log.Error("Error opening git repository", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to open git repository",
+		)
 	}
 	defer repository.Free()
 
@@ -582,16 +590,20 @@ func handlePull(
 	if ok, err := lockfile.TryRLock(); !ok {
 		log.Info("Waiting for the lockfile", "err", err)
 		if err := lockfile.RLock(); err != nil {
-			log.Crit("Failed to acquire the lockfile", "err", err)
-			return err
+			return errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			)
 		}
 	}
 	defer lockfile.Unlock()
 
 	pb, err := repository.NewPackbuilder()
 	if err != nil {
-		log.Error("Error creating packbuilder", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to create packbuilder",
+		)
 	}
 	defer pb.Free()
 
@@ -608,8 +620,13 @@ func handlePull(
 		if err == ErrFlush {
 			break
 		} else if err != nil {
-			log.Error("Error reading request", "err", err)
-			return base.ErrorWithCategory(ErrBadRequest, err)
+			return base.ErrorWithCategory(
+				ErrBadRequest,
+				errors.Wrap(
+					err,
+					"failed to read the request",
+				),
+			)
 		}
 		log.Debug("pktline", "data", strings.Trim(string(line), "\n"))
 		tokens := strings.FieldsFunc(
@@ -624,21 +641,30 @@ func handlePull(
 					continue
 				}
 				if !pullCapabilities.Contains(cap) {
-					log.Error("Unsupported capability", "err", cap)
-					return ErrBadRequest
+					return base.ErrorWithCategory(
+						ErrBadRequest,
+						errors.Errorf(
+							"unsupported capability %s",
+							cap,
+						),
+					)
 				}
 			}
 			log.Debug("client capabilities", "list", tokens[2:])
 		}
 		if tokens[0] == "want" {
 			if len(tokens) < 2 {
-				log.Debug("Malformed 'want' pkt-line")
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.New("malformed 'want' pkt-line"),
+				)
 			}
 			oid, err := git.NewOid(tokens[1])
 			if err != nil {
-				log.Debug("Invalid OID sent", "oid", tokens[1])
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.Errorf("invalid OID: %s", tokens[1]),
+				)
 			}
 			commit, err := repository.LookupCommit(oid)
 			if err != nil {
@@ -651,19 +677,25 @@ func handlePull(
 			wantMap[tokens[1]] = commit
 		} else if tokens[0] == "shallow" {
 			if len(tokens) < 2 {
-				log.Debug("Malformed 'shallow' pkt-line")
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.New("malformed 'shallow' pkt-line"),
+				)
 			}
 			shallowSet[tokens[1]] = struct{}{}
 		} else if tokens[0] == "deepen" {
 			if len(tokens) < 2 {
-				log.Debug("Malformed 'deepen' pkt-line")
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.New("malformed 'deepen' pkt-line"),
+				)
 			}
 			maxDepth, err = strconv.ParseUint(tokens[1], 10, 64)
 			if err != nil {
-				log.Error("Invalid depth", "depth", tokens[1])
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.Errorf("invalid depth %s", tokens[1]),
+				)
 			}
 		} else {
 			log.Debug("unknown command", "command", tokens[0])
@@ -699,8 +731,13 @@ func handlePull(
 		if err == ErrFlush || err == io.EOF {
 			break
 		} else if err != nil {
-			log.Error("Error reading request", "err", err)
-			return base.ErrorWithCategory(ErrBadRequest, err)
+			return base.ErrorWithCategory(
+				ErrBadRequest,
+				errors.Wrap(
+					err,
+					"failed to read request",
+				),
+			)
 		}
 		log.Debug("pktline", "data", strings.Trim(string(line), "\n"))
 		tokens := strings.FieldsFunc(
@@ -714,13 +751,17 @@ func handlePull(
 			break
 		} else if tokens[0] == "have" {
 			if len(tokens) < 2 {
-				log.Error("malformed 'have' pkt-line")
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.New("malformed 'have' pkt-line"),
+				)
 			}
 			oid, err := git.NewOid(tokens[1])
 			if err != nil {
-				log.Debug("Invalid OID sent", "oid", tokens[1])
-				return ErrBadRequest
+				return base.ErrorWithCategory(
+					ErrBadRequest,
+					errors.Errorf("invalid OID: %s", tokens[1]),
+				)
 			}
 			commit, err := repository.LookupCommit(oid)
 			if err == nil {
@@ -759,8 +800,10 @@ func handlePull(
 			}
 			log.Debug("Adding commit", "commit", current.Id().String())
 			if err := pb.InsertCommit(current.Id()); err != nil {
-				log.Error("Error building pack", "err", err)
-				return err
+				return errors.Wrap(
+					err,
+					"failed to build packfile",
+				)
 			}
 		}
 	}
@@ -815,8 +858,10 @@ func handlePush(
 ) error {
 	repository, err := git.OpenRepository(repositoryPath)
 	if err != nil {
-		log.Error("Error opening git repository", "err", err)
-		return err
+		return errors.Wrap(
+			err,
+			"failed to open git repository",
+		)
 	}
 	defer repository.Free()
 
@@ -824,8 +869,10 @@ func handlePush(
 	if ok, err := lockfile.TryRLock(); !ok {
 		log.Info("Waiting for the lockfile", "err", err)
 		if err := lockfile.RLock(); err != nil {
-			log.Crit("Failed to acquire the lockfile", "err", err)
-			return err
+			return errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			)
 		}
 	}
 	defer lockfile.Unlock()
@@ -839,8 +886,13 @@ func handlePush(
 		if err == ErrFlush {
 			break
 		} else if err != nil {
-			log.Error("Error reading request", "err", err)
-			return ErrBadRequest
+			return base.ErrorWithCategory(
+				ErrBadRequest,
+				errors.Wrap(
+					err,
+					"failed to read the request",
+				),
+			)
 		}
 		tokens := strings.FieldsFunc(
 			strings.Trim(string(line), "\n"),
@@ -849,8 +901,10 @@ func handlePush(
 			},
 		)
 		if len(tokens) < 3 {
-			log.Error("Error parsing command", "tokens", tokens)
-			return ErrBadRequest
+			return base.ErrorWithCategory(
+				ErrBadRequest,
+				errors.Errorf("failed to parse command %v", tokens),
+			)
 		}
 		if len(tokens) > 3 {
 			log.Debug("client capabilities", "list", tokens[3:])

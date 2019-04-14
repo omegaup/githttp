@@ -284,7 +284,7 @@ func TestHandleNotFound(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, "GET", "application/json", path, log, w)
-		if err != ErrNotFound {
+		if !base.HasErrorCategory(err, ErrNotFound) {
 			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", path, err, w.Body.String())
 		}
 	}

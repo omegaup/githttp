@@ -23,7 +23,7 @@ const (
 var (
 	// ErrObjectLimitExceeded is the error that's returned when a git tree has
 	// more objects than ObjectLimit.
-	ErrObjectLimitExceeded = stderrors.New("Tree exceeded object limit")
+	ErrObjectLimitExceeded = stderrors.New("tree exceeded object limit")
 )
 
 type mergeEntry struct {
@@ -38,13 +38,11 @@ type mergeEntry struct {
 // in one tree and a blob in another), the operation fails.
 func MergeTrees(
 	repository *git.Repository,
-	log log15.Logger,
 	trees ...*git.Tree,
 ) (*git.Tree, error) {
 	treebuilder, err := repository.TreeBuilder()
 	if err != nil {
-		log.Error("Error creating treebuilder", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create treebuilder")
 	}
 	defer treebuilder.Free()
 
@@ -55,8 +53,7 @@ func MergeTrees(
 			entry := tree.EntryByIndex(i)
 			object, err := repository.Lookup(entry.Id)
 			if err != nil {
-				log.Error("Error looking up tree entry", "entry", entry, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to look up tree entry %v", entry)
 			}
 			defer object.Free()
 
@@ -69,15 +66,17 @@ func MergeTrees(
 				}
 				entries[entry.Name] = oldMergeEntry
 			} else if oldMergeEntry.objectType != object.Type() {
-				log.Error("Type mismatch for path", "entry", entry, "object type", object.Type())
-				return nil, errors.New("object type mismatch")
+				return nil, errors.Errorf(
+					"object type mismatch for entry %v: %s",
+					entry,
+					object.Type(),
+				)
 			}
 
 			if object.Type() == git.ObjectTree {
 				tree, err := object.AsTree()
 				if err != nil {
-					log.Error("Error converting object to tree", "entry", entry, "err", err)
-					return nil, err
+					return nil, errors.Wrapf(err, "failed to convert object to tree %v", entry)
 				}
 				defer tree.Free()
 
@@ -97,31 +96,27 @@ func MergeTrees(
 		if entry.objectType == git.ObjectTree && len(entry.trees) > 1 {
 			tree, err := MergeTrees(
 				repository,
-				log,
 				entry.trees...,
 			)
 			if err != nil {
-				log.Error("Error merging subtrees", "entry", entry, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to merge subtrees for %v", entry)
 			}
 			defer tree.Free()
 
 			if err = treebuilder.Insert(name, tree.Id(), entry.entry.Filemode); err != nil {
-				log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
 		} else {
+			// Blob or unchanged tree.
 			if err = treebuilder.Insert(name, entry.entry.Id, entry.entry.Filemode); err != nil {
-				log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
 		}
 	}
 
 	mergedTreeID, err := treebuilder.Write()
 	if err != nil {
-		log.Error("Error creating merged tree", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create merged tree")
 	}
 	return repository.LookupTree(mergedTreeID)
 }
@@ -130,19 +125,19 @@ func copyBlob(
 	originalRepository *git.Repository,
 	blobID *git.Oid,
 	repository *git.Repository,
-	log log15.Logger,
 ) error {
 	blob, err := originalRepository.LookupBlob(blobID)
 	if err != nil {
-		log.Error("Error looking up blob", "id", blobID, "err", err)
-		return err
+		return errors.Wrapf(err, "failed to look up blob %s", blobID)
 	}
 	defer blob.Free()
 
 	oid, err := repository.CreateBlobFromBuffer(blob.Contents())
-	if err != nil || !blobID.Equal(oid) {
-		log.Error("Error creating blob", "id", blobID, "new id", oid, "err", err)
-		return err
+	if err != nil {
+		return errors.Wrapf(err, "failed to create blob from original %s", blobID)
+	}
+	if !blobID.Equal(oid) {
+		return errors.Wrapf(err, "blob id mismatch: expected %s, got %s", blobID, oid)
 	}
 	return nil
 }
@@ -151,45 +146,43 @@ func copyTree(
 	originalRepository *git.Repository,
 	treeID *git.Oid,
 	repository *git.Repository,
-	log log15.Logger,
 ) error {
 	tree, err := originalRepository.LookupTree(treeID)
 	if err != nil {
-		log.Error("Error looking up tree", "id", treeID, "err", err)
-		return err
+		return errors.Wrapf(err, "failed to look up tree %s", treeID)
 	}
 	defer tree.Free()
 
 	treebuilder, err := repository.TreeBuilder()
 	if err != nil {
-		log.Error("Error creating treebuilder", "err", err)
-		return err
+		return errors.Wrap(err, "failed to create treebuilder")
 	}
 	defer treebuilder.Free()
 
 	for i := uint64(0); i < tree.EntryCount(); i++ {
 		entry := tree.EntryByIndex(i)
 		if entry.Type == git.ObjectBlob {
-			err = copyBlob(originalRepository, entry.Id, repository, log)
+			err = copyBlob(originalRepository, entry.Id, repository)
 			if err != nil {
 				return err
 			}
 		} else if entry.Type == git.ObjectTree {
-			err = copyTree(originalRepository, entry.Id, repository, log)
+			err = copyTree(originalRepository, entry.Id, repository)
 			if err != nil {
 				return err
 			}
 		}
 		if err = treebuilder.Insert(entry.Name, entry.Id, entry.Filemode); err != nil {
-			log.Error("Error inserting entry in treebuilder", "name", entry.Name, "err", err)
-			return err
+			return errors.Wrapf(err, "failed to insert %s into treebuilder", entry.Name)
 		}
 	}
 
 	oid, err := treebuilder.Write()
-	if err != nil || !treeID.Equal(oid) {
-		log.Error("Error creating tree", "id", treeID, "new id", oid, "err", err)
-		return err
+	if err != nil {
+		return errors.Wrapf(err, "failed to create tree from original %s", treeID)
+	}
+	if !treeID.Equal(oid) {
+		return errors.Wrapf(err, "tree id mismatch: expected %s, got %s", treeID, oid)
 	}
 	return nil
 }
@@ -205,8 +198,7 @@ func SplitTree(
 ) (*git.Tree, error) {
 	treebuilder, err := repository.TreeBuilder()
 	if err != nil {
-		log.Error("Error creating treebuilder", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create treebuilder")
 	}
 	defer treebuilder.Free()
 
@@ -224,23 +216,21 @@ func SplitTree(
 
 		originalEntry, err := originalTree.EntryByPath(path)
 		if err != nil {
-			log.Error("Error looking up original tree", "path", path, "err", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to look up original tree at %s", path)
 		}
 		if originalEntry.Type == git.ObjectBlob {
-			err = copyBlob(originalRepository, originalEntry.Id, repository, log)
+			err = copyBlob(originalRepository, originalEntry.Id, repository)
 			if err != nil {
 				return nil, err
 			}
 		} else if originalEntry.Type == git.ObjectTree {
-			err = copyTree(originalRepository, originalEntry.Id, repository, log)
+			err = copyTree(originalRepository, originalEntry.Id, repository)
 			if err != nil {
 				return nil, err
 			}
 		}
 		if err = treebuilder.Insert(path, originalEntry.Id, originalEntry.Filemode); err != nil {
-			log.Error("Error inserting entry in treebuilder", "name", path, "err", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to insert %s into treebuilder", path)
 		}
 	}
 
@@ -248,20 +238,12 @@ func SplitTree(
 		if err := (func() error {
 			originalEntry, err := originalTree.EntryByPath(name)
 			if err != nil {
-				return errors.Wrapf(
-					err,
-					"failed to look up original tree at %s",
-					name,
-				)
+				return errors.Wrapf(err, "failed to look up original tree at %s", name)
 			}
 
 			originalSubtree, err := originalRepository.LookupTree(originalEntry.Id)
 			if err != nil {
-				return errors.Wrapf(
-					err,
-					"failed to look up original tree at %s",
-					name,
-				)
+				return errors.Wrapf(err, "failed to look up original tree at %s", name)
 			}
 			defer originalSubtree.Free()
 
@@ -278,11 +260,7 @@ func SplitTree(
 
 			log.Debug("Creating subtree", "name", name, "contents", subpaths, "id", tree.Id().String())
 			if err = treebuilder.Insert(name, tree.Id(), originalEntry.Filemode); err != nil {
-				return errors.Wrapf(
-					err,
-					"failed to insert %s in treebuilder",
-					name,
-				)
+				return errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
 			return nil
 		})(); err != nil {
@@ -292,8 +270,7 @@ func SplitTree(
 
 	oid, err := treebuilder.Write()
 	if err != nil {
-		log.Error("Error creating tree", "paths", paths, "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create tree for %v", paths)
 	}
 	return repository.LookupTree(oid)
 }
@@ -338,8 +315,7 @@ func SplitCommit(
 ) ([]SplitCommitResult, error) {
 	originalTree, err := originalCommit.Tree()
 	if err != nil {
-		log.Error("Error creating git tree", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create tree")
 	}
 	defer originalTree.Free()
 
@@ -432,8 +408,7 @@ func SplitCommit(
 				parentCommits...,
 			)
 			if err != nil {
-				log.Error("Error creating commit", "tree", newTree.Id(), "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to create commit for tree %s", newTree.Id())
 			}
 			return &SplitCommitResult{
 				CommitID: newCommitID,
@@ -470,83 +445,58 @@ func SpliceCommit(
 ) ([]*GitCommand, error) {
 	newRepository, err := git.OpenRepository(repository.Path())
 	if err != nil {
-		log.Error(
-			"Error opening git repository",
-			"path", repository.Path(),
-			"err", err,
-		)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to open git repository at %s", repository.Path())
 	}
 	defer newRepository.Free()
 
 	odb, err := newRepository.Odb()
 	if err != nil {
-		log.Error("Error opening git odb", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to open git odb")
 	}
 	defer odb.Free()
 
 	looseObjectsDir, err := ioutil.TempDir("", fmt.Sprintf("loose_objects_%s", path.Base(repository.Path())))
 	if err != nil {
-		return nil, errors.Wrap(
-			err,
-			"failed to create temporary directory for loose objects",
-		)
+		return nil, errors.Wrap(err, "failed to create temporary directory for loose objects")
 	}
 	defer os.RemoveAll(looseObjectsDir)
 
 	looseObjectsBackend, err := git.NewOdbBackendLoose(looseObjectsDir, -1, false, 0, 0)
 	if err != nil {
-		return nil, errors.Wrap(
-			err,
-			"failed to create new loose object backend",
-		)
+		return nil, errors.Wrap(err, "failed to create new loose object backend")
 	}
 	if err := odb.AddBackend(looseObjectsBackend, 999); err != nil {
 		looseObjectsBackend.Free()
-		return nil, errors.Wrap(
-			err,
-			"failed to register loose object backend",
-		)
+		return nil, errors.Wrap(err, "failed to register loose object backend")
 	}
 
 	originalTree, err := commit.Tree()
 	if err != nil {
-		log.Error("Error obtaining the original tree", "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to obtain the original tree for commit %s", commit.Id())
 	}
 	defer originalTree.Free()
 
 	if len(overrides) != 0 {
-		overrideTree, err := BuildTree(
-			newRepository,
-			overrides,
-			log,
-		)
+		overrideTree, err := BuildTree(newRepository, overrides, log)
 		if err != nil {
-			log.Error("Error creating the override tree", "err", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to create the override tree for commit %s", commit.Id())
 		}
 		defer overrideTree.Free()
 		originalTree, err := commit.Tree()
 		if err != nil {
-			log.Error("Error obtaining the original commit tree", "err", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to obtain the override tree for commit %s", commit.Id())
 		}
 		defer originalTree.Free()
-		if err = copyTree(repository, originalTree.Id(), newRepository, log); err != nil {
-			log.Error("Error copying the original tree to the new repository", "err", err)
-			return nil, err
+		if err = copyTree(repository, originalTree.Id(), newRepository); err != nil {
+			return nil, errors.Wrap(err, "failed to copy the tree to the new repository")
 		}
 		mergedOverrideTree, err := MergeTrees(
 			newRepository,
-			log,
 			overrideTree,
 			originalTree,
 		)
 		if err != nil {
-			log.Error("Error creating merged override tree", "err", err)
-			return nil, err
+			return nil, errors.Wrap(err, "failed to create merged override tree")
 		}
 		defer mergedOverrideTree.Free()
 
@@ -563,12 +513,10 @@ func SpliceCommit(
 			overrideCommitParents...,
 		)
 		if err != nil {
-			log.Error("Error creating the override commit", "err", err)
-			return nil, err
+			return nil, errors.Wrap(err, "failed to create merged override commit")
 		}
 		if commit, err = newRepository.LookupCommit(overrideCommitID); err != nil {
-			log.Error("Error looking up the overridden commit", "err", err)
-			return nil, err
+			return nil, errors.Wrap(err, "failed to look up merged override commit")
 		}
 		defer commit.Free()
 
@@ -588,8 +536,7 @@ func SpliceCommit(
 		log,
 	)
 	if err != nil {
-		log.Error("Error splitting commit", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to split commit")
 	}
 
 	newCommands := make([]*GitCommand, 0)
@@ -602,12 +549,7 @@ func SpliceCommit(
 	for i, splitCommit := range splitCommits {
 		newCommit, err := newRepository.LookupCommit(splitCommit.CommitID)
 		if err != nil {
-			log.Error(
-				"Error looking up new private commit",
-				"id", splitCommit.CommitID,
-				"err", err,
-			)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to look up new private commit %s", splitCommit.CommitID)
 		}
 		defer newCommit.Free()
 		var oldCommit *git.Commit
@@ -621,12 +563,7 @@ func SpliceCommit(
 
 		newTree, err := newRepository.LookupTree(splitCommit.TreeID)
 		if err != nil {
-			log.Error(
-				"Error looking up new private tree",
-				"id", splitCommit.TreeID,
-				"err", err,
-			)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to look up new private tree %s", splitCommit.TreeID)
 		}
 		defer newTree.Free()
 		newTrees = append(newTrees, newTree)
@@ -653,12 +590,10 @@ func SpliceCommit(
 
 	mergedTree, err := MergeTrees(
 		newRepository,
-		log,
 		newTrees...,
 	)
 	if err != nil {
-		log.Error("Error creating merged tree", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create merged tree")
 	}
 	defer mergedTree.Free()
 
@@ -678,8 +613,7 @@ func SpliceCommit(
 		parentCommits...,
 	)
 	if err != nil {
-		log.Error("Error committing merged data", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to commit merged data")
 	}
 	var oldCommitID *git.Oid
 	var oldTreeID *git.Oid
@@ -703,45 +637,38 @@ func SpliceCommit(
 
 	walk, err := newRepository.Walk()
 	if err != nil {
-		log.Error("Error creating revwalk", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create revwalk")
 	}
 	defer walk.Free()
 
 	if parentCommit != nil {
 		if err := walk.Hide(parentCommit.Id()); err != nil {
-			log.Error("Error hiding commit", "commit", *parentCommit.Id(), "err", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to hide commit %s", *parentCommit.Id())
 		}
 	}
 
 	if err := walk.Push(mergedID); err != nil {
-		log.Error("Error pushing commit", "commit", *mergedID, "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to push commit %s", *mergedID)
 	}
 
 	f, err := os.Create(newPackPath)
 	if err != nil {
-		log.Error("Error opening file for writing", "path", newPackPath, "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to open %s for writing", newPackPath)
 	}
 	defer f.Close()
 
 	pb, err := newRepository.NewPackbuilder()
 	if err != nil {
-		log.Error("Error creating packbuilder", "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create packbuilder")
 	}
 	defer pb.Free()
 
 	if err := pb.InsertWalk(walk); err != nil {
-		log.Error("Error inserting walk into packbuilder", "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to insert walk into packbuilder")
 	}
 
 	if err := pb.Write(f); err != nil {
-		log.Error("Error writing packfile", "path", newPackPath, "err", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to write packfile into %s", newPackPath)
 	}
 
 	return newCommands, nil
@@ -756,8 +683,7 @@ func BuildTree(
 ) (*git.Tree, error) {
 	treebuilder, err := repository.TreeBuilder()
 	if err != nil {
-		log.Error("Error creating treebuilder", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create treebuilder")
 	}
 	defer treebuilder.Free()
 
@@ -768,18 +694,15 @@ func BuildTree(
 		if len(components) == 1 {
 			contents, err := ioutil.ReadAll(reader)
 			if err != nil {
-				log.Error("Error reading contents", "path", name, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to read contents of %s", name)
 			}
 			oid, err := repository.CreateBlobFromBuffer(contents)
 			if err != nil {
-				log.Error("Error creating blob", "path", name, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to create blob for %s", name)
 			}
 			log.Debug("Creating blob", "path", name, "len", len(contents), "id", oid)
 			if err = treebuilder.Insert(name, oid, 0100644); err != nil {
-				log.Error("Error inserting entry in treebuilder", "name", name, "err", err)
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
 		} else {
 			if _, ok := children[components[0]]; !ok {
@@ -803,11 +726,7 @@ func BuildTree(
 			defer tree.Free()
 
 			if err = treebuilder.Insert(name, tree.Id(), 040000); err != nil {
-				return errors.Wrapf(
-					err,
-					"failed to insert %s in treebuilder",
-					name,
-				)
+				return errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
 			return nil
 		})(); err != nil {
@@ -817,8 +736,7 @@ func BuildTree(
 
 	mergedTreeID, err := treebuilder.Write()
 	if err != nil {
-		log.Error("Error creating tree", "err", err)
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create tree")
 	}
 	log.Debug("Creating tree", "id", mergedTreeID)
 	return repository.LookupTree(mergedTreeID)
