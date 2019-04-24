@@ -42,7 +42,7 @@ func TestServerClone(t *testing.T) {
 		"testdata",
 		".git",
 		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log),
+		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
 		nil,
 		log,
 	)
@@ -82,7 +82,7 @@ func TestServerCloneShallow(t *testing.T) {
 		"testdata",
 		".git",
 		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log),
+		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
 		nil,
 		log,
 	)
@@ -145,7 +145,7 @@ func TestServerPush(t *testing.T) {
 		dir,
 		".git",
 		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log),
+		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
 		nil,
 		log,
 	)
@@ -231,7 +231,7 @@ func TestGitbomb(t *testing.T) {
 		dir,
 		".git",
 		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, log),
+		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
 		nil,
 		log,
 	)

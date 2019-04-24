@@ -119,6 +119,7 @@ type GitProtocol struct {
 	ReferenceDiscoveryCallback ReferenceDiscoveryCallback
 	UpdateCallback             UpdateCallback
 	PreprocessCallback         PreprocessCallback
+	AllowNonFastForward        bool
 	log                        log15.Logger
 }
 
@@ -128,6 +129,7 @@ func NewGitProtocol(
 	referenceDiscoveryCallback ReferenceDiscoveryCallback,
 	updateCallback UpdateCallback,
 	preprocessCallback PreprocessCallback,
+	allowNonFastForward bool,
 	log log15.Logger,
 ) *GitProtocol {
 	if authCallback == nil {
@@ -151,6 +153,7 @@ func NewGitProtocol(
 		ReferenceDiscoveryCallback: referenceDiscoveryCallback,
 		UpdateCallback:             updateCallback,
 		PreprocessCallback:         preprocessCallback,
+		AllowNonFastForward:        allowNonFastForward,
 		log:                        log,
 	}
 }
@@ -203,7 +206,7 @@ func (p *GitProtocol) PushPackfile(
 				command.logMessage = commit.Summary()
 				// These error don't need wrapping since they are presented in the
 				// context of the ref they refer to.
-				if !validateFastForward(repository, commit, command.Reference) {
+				if !ValidateFastForward(repository, commit, command.Reference) && !p.AllowNonFastForward {
 					command.err = ErrNonFastForward
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
 					command.err = ErrRestrictedRef
@@ -361,12 +364,12 @@ func DiscoverReferences(r io.Reader) (*ReferenceDiscovery, error) {
 	return discovery, nil
 }
 
-// validateFastForward returns whether there is a chain of left parent commits
+// ValidateFastForward returns whether there is a chain of left parent commits
 // that lead to:
 // * The target of the reference (if it exists).
 // * The commit pointed to by HEAD (if it is an unborn branch, and it exists).
 // * An unborn branch if there is no HEAD.
-func validateFastForward(
+func ValidateFastForward(
 	repository *git.Repository,
 	commit *git.Commit,
 	ref *git.Reference,
