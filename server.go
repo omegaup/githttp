@@ -67,6 +67,9 @@ var (
 	// with a commit that is not a direct descendant of the current tip.
 	ErrNonFastForward = stderrors.New("non-fast-forward")
 
+	// ErrStaleInfo is returned if the provided old oid does not match the current tip.
+	ErrStaleInfo = stderrors.New("stale-info")
+
 	// ErrInvalidOldOid is returned if the provided old oid is not a valid object id.
 	ErrInvalidOldOid = stderrors.New("invalid-old-oid")
 

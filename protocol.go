@@ -91,14 +91,14 @@ func (c *GitCommand) IsDelete() bool {
 	return c.New.IsZero()
 }
 
-// IsFastForward returns whether the command describes a fast-forward
-// update operation: either a reference is being created, or it's replacing the
-// current branch's HEAD.
-func (c *GitCommand) IsFastForward() bool {
-	if c.Reference == nil {
-		return c.IsCreate()
+// IsStaleRequest returns whether the command is requesting a stale operation:
+// if this is a create command but the reference does exist, or it's not
+// replacing the current branch's HEAD.
+func (c *GitCommand) IsStaleRequest() bool {
+	if c.IsCreate() {
+		return c.Reference != nil
 	}
-	return c.Old.Equal(c.Reference.Target())
+	return !c.Old.Equal(c.Reference.Target())
 }
 
 func (c *GitCommand) String() string {
@@ -931,8 +931,8 @@ func handlePush(
 			command.err = ErrInvalidOldOid
 		} else if command.New, err = git.NewOid(tokens[1]); err != nil {
 			command.err = ErrInvalidNewOid
-		} else if !command.IsFastForward() {
-			command.err = ErrNonFastForward
+		} else if command.IsStaleRequest() {
+			command.err = ErrStaleInfo
 		} else if command.IsDelete() {
 			command.err = ErrDeleteUnallowed
 		}
