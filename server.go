@@ -452,12 +452,13 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := handleBrowse(
+			ctx,
 			repositoryPath,
 			level,
+			h.protocol,
 			r.Method,
 			r.Header.Get("Accept"),
 			cleanedPath,
-			h.log,
 			w,
 		); err != nil {
 			h.log.Error(

@@ -3,10 +3,10 @@ package githttp
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go"
 	base "github.com/omegaup/go-base"
 	"github.com/pkg/errors"
@@ -171,9 +171,91 @@ func formatBlob(
 	return result
 }
 
-func handleRefs(
+// isCommitIDReachable returns whether a particular commit ID is reachable from any
+// of the refs that are viewable by the requestor.
+func isCommitIDReachable(
+	ctx context.Context,
 	repository *git.Repository,
 	level AuthorizationLevel,
+	protocol *GitProtocol,
+	commitID *git.Oid,
+) error {
+	it, err := repository.NewReferenceIterator()
+	if err != nil {
+		return errors.Wrap(
+			err,
+			"failed to create a reference iterator",
+		)
+	}
+	defer it.Free()
+
+	walk, err := repository.Walk()
+	if err != nil {
+		return errors.Wrap(
+			err,
+			"failed to create the repository revwalk",
+		)
+	}
+	defer walk.Free()
+
+	for {
+		ref, err := it.Next()
+		if err != nil {
+			if git.IsErrorCode(err, git.ErrIterOver) {
+				break
+			}
+			return errors.Wrap(
+				err,
+				"failed to get an entry from the reference iterator",
+			)
+		}
+		defer ref.Free()
+
+		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name()) {
+			continue
+		}
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, ref.Name()) {
+			continue
+		}
+
+		if err = walk.Push(ref.Target()); err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to add \"%s\"'s target to the revwalk",
+				ref.Name(),
+			)
+		}
+	}
+
+	found := false
+	if err := walk.Iterate(func(reachableCommit *git.Commit) bool {
+		defer reachableCommit.Free()
+		if commitID.Equal(reachableCommit.Id()) {
+			found = true
+			return false
+		}
+		return true
+	}); err != nil {
+		return errors.Wrap(
+			err,
+			"failed to walk the repository",
+		)
+	}
+
+	if !found {
+		// Even though the commit itself exists, we tell the caller that it
+		// doesn't.
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+func handleRefs(
+	ctx context.Context,
+	repository *git.Repository,
+	level AuthorizationLevel,
+	protocol *GitProtocol,
 	method string,
 ) (RefsResult, error) {
 	it, err := repository.NewReferenceIterator()
@@ -190,10 +272,6 @@ func handleRefs(
 	head, err := repository.Head()
 	if err == nil {
 		defer head.Free()
-		result["HEAD"] = &RefResult{
-			Target: head.Name(),
-			Value:  head.Target().String(),
-		}
 	}
 
 	for {
@@ -211,6 +289,15 @@ func handleRefs(
 
 		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name()) {
 			continue
+		}
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, ref.Name()) {
+			continue
+		}
+		if head != nil && head.Name() == ref.Name() {
+			result["HEAD"] = &RefResult{
+				Target: head.Name(),
+				Value:  head.Target().String(),
+			}
 		}
 		refResult := &RefResult{}
 		if ref.Type() == git.ReferenceSymbolic {
@@ -236,7 +323,10 @@ func handleRefs(
 }
 
 func handleLog(
+	ctx context.Context,
 	repository *git.Repository,
+	level AuthorizationLevel,
+	protocol *GitProtocol,
 	requestPath string,
 	method string,
 ) (*LogResult, error) {
@@ -273,6 +363,16 @@ func handleLog(
 				obj.Type(),
 			),
 		)
+	}
+
+	if err := isCommitIDReachable(
+		ctx,
+		repository,
+		level,
+		protocol,
+		obj.Id(),
+	); err != nil {
+		return nil, err
 	}
 
 	if method == "HEAD" {
@@ -316,7 +416,10 @@ func handleLog(
 }
 
 func handleArchive(
+	ctx context.Context,
 	repository *git.Repository,
+	level AuthorizationLevel,
+	protocol *GitProtocol,
 	requestPath string,
 	method string,
 	w http.ResponseWriter,
@@ -369,6 +472,16 @@ func handleArchive(
 				obj.Type(),
 			),
 		)
+	}
+
+	if err := isCommitIDReachable(
+		ctx,
+		repository,
+		level,
+		protocol,
+		obj.Id(),
+	); err != nil {
+		return err
 	}
 
 	if method == "HEAD" {
@@ -454,7 +567,10 @@ func handleArchive(
 }
 
 func handleShow(
+	ctx context.Context,
 	repository *git.Repository,
+	level AuthorizationLevel,
+	protocol *GitProtocol,
 	requestPath string,
 	method string,
 	acceptMIMEType string,
@@ -505,9 +621,32 @@ func handleShow(
 		return formatCommit(commit), nil
 	}
 
+	obj, err := repository.RevparseSingle(rev)
+	if err != nil {
+		return nil, base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Wrapf(
+				err,
+				"failed to parse revision %s",
+				rev,
+			),
+		)
+	}
+	defer obj.Free()
+
+	if err := isCommitIDReachable(
+		ctx,
+		repository,
+		level,
+		protocol,
+		obj.Id(),
+	); err != nil {
+		return nil, err
+	}
+
 	// Show path
 	rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
-	obj, err := repository.RevparseSingle(rev)
+	obj, err = repository.RevparseSingle(rev)
 	if err != nil {
 		return nil, base.ErrorWithCategory(
 			ErrNotFound,
@@ -565,12 +704,13 @@ func handleShow(
 }
 
 func handleBrowse(
+	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
+	protocol *GitProtocol,
 	method string,
 	acceptMIMEType string,
 	requestPath string,
-	log log15.Logger,
 	w http.ResponseWriter,
 ) error {
 	repository, err := git.OpenRepository(repositoryPath)
@@ -584,9 +724,9 @@ func handleBrowse(
 
 	lockfile := NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
-		log.Info("Waiting for the lockfile", "err", err)
+		protocol.log.Info("Waiting for the lockfile", "err", err)
 		if err := lockfile.RLock(); err != nil {
-			log.Crit("Failed to acquire the lockfile", "err", err)
+			protocol.log.Crit("Failed to acquire the lockfile", "err", err)
 			return err
 		}
 	}
@@ -594,22 +734,22 @@ func handleBrowse(
 
 	var result interface{}
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
-		result, err = handleRefs(repository, level, method)
+		result, err = handleRefs(ctx, repository, level, protocol, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+log/") {
-		result, err = handleLog(repository, requestPath, method)
+		result, err = handleLog(ctx, repository, level, protocol, requestPath, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+archive/") {
-		err = handleArchive(repository, requestPath, method, w)
+		err = handleArchive(ctx, repository, level, protocol, requestPath, method, w)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+/") {
-		result, err = handleShow(repository, requestPath, method, acceptMIMEType)
+		result, err = handleShow(ctx, repository, level, protocol, requestPath, method, acceptMIMEType)
 		if err != nil {
 			return err
 		}

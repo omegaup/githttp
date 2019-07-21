@@ -3,6 +3,7 @@ package githttp
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	git "github.com/lhchavez/git2go"
 	base "github.com/omegaup/go-base"
 	"net/http/httptest"
@@ -11,13 +12,29 @@ import (
 )
 
 func TestHandleRefs(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleRefs(repository, AuthorizationAllowed, "GET")
+	result, err := handleRefs(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"GET",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the list of refs: %v", err)
 	}
@@ -39,14 +56,70 @@ func TestHandleRefs(t *testing.T) {
 	}
 }
 
-func TestHandleRestrictedRefs(t *testing.T) {
+func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		func(
+			ctx context.Context,
+			repository *git.Repository,
+			referenceName string,
+		) bool {
+			return referenceName == "refs/heads/public"
+		},
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleRefs(repository, AuthorizationAllowedRestricted, "GET")
+	result, err := handleRefs(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"GET",
+	)
+	if err != nil {
+		t.Fatalf("Error getting the list of refs: %v", err)
+	}
+
+	expected := RefsResult{}
+	if !reflect.DeepEqual(expected, result) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestHandleRestrictedRefs(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
+	repository, err := git.OpenRepository("testdata/repo.git")
+	if err != nil {
+		t.Fatalf("Error opening git repository: %v", err)
+	}
+	defer repository.Free()
+
+	result, err := handleRefs(
+		context.Background(),
+		repository,
+		AuthorizationAllowedRestricted,
+		protocol,
+		"GET",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the list of refs: %v", err)
 	}
@@ -66,6 +139,16 @@ func TestHandleRestrictedRefs(t *testing.T) {
 }
 
 func TestHandleArchiveCommit(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
@@ -73,7 +156,15 @@ func TestHandleArchiveCommit(t *testing.T) {
 	defer repository.Free()
 
 	response := httptest.NewRecorder()
-	if err := handleArchive(repository, "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.zip", "GET", response); err != nil {
+	if err := handleArchive(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.zip",
+		"GET",
+		response,
+	); err != nil {
 		t.Fatalf("Error getting archive: %v", err)
 	}
 
@@ -90,13 +181,30 @@ func TestHandleArchiveCommit(t *testing.T) {
 }
 
 func TestHandleLog(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleLog(repository, "/+log/", "GET")
+	result, err := handleLog(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+log/",
+		"GET",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -143,13 +251,30 @@ func TestHandleLog(t *testing.T) {
 }
 
 func TestHandleLogCommit(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleLog(repository, "/+log/88aa3454adb27c3c343ab57564d962a0a7f6a3c1", "GET")
+	result, err := handleLog(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+log/88aa3454adb27c3c343ab57564d962a0a7f6a3c1",
+		"GET",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -180,13 +305,31 @@ func TestHandleLogCommit(t *testing.T) {
 }
 
 func TestHandleShowCommit(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1", "GET", "")
+	result, err := handleShow(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1",
+		"GET",
+		"",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -213,13 +356,31 @@ func TestHandleShowCommit(t *testing.T) {
 }
 
 func TestHandleShowTree(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/", "GET", "")
+	result, err := handleShow(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/",
+		"GET",
+		"",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -241,13 +402,31 @@ func TestHandleShowTree(t *testing.T) {
 }
 
 func TestHandleShowBlob(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		nil,
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	result, err := handleShow(repository, "/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/empty", "GET", "")
+	result, err := handleShow(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1/empty",
+		"GET",
+		"",
+	)
 	if err != nil {
 		t.Fatalf("Error getting the log: %v %v", err, result)
 	}
@@ -263,27 +442,57 @@ func TestHandleShowBlob(t *testing.T) {
 }
 
 func TestHandleNotFound(t *testing.T) {
+	log := base.StderrLog()
+	protocol := NewGitProtocol(
+		nil,
+		func(
+			ctx context.Context,
+			repository *git.Repository,
+			referenceName string,
+		) bool {
+			return referenceName == "refs/heads/public"
+		},
+		nil,
+		nil,
+		false,
+		log,
+	)
+
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
 
-	log := base.StderrLog()
-
 	paths := []string{
-		"/+foo/",        // Invalid type.
-		"/+/",           // Missing path.
-		"/+/foo",        // Invalid ref.
-		"/+/master/foo", // Path not found.
-		"/+/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", // Valid ref, but is not a commit.
-		"/+log/foo", // Invalid ref.
+		"/+foo/",          // Invalid type.
+		"/+/",             // Missing path.
+		"/+/foo",          // Invalid ref.
+		"/+/master/foo",   // Path not found.
+		"/+/master/empty", // Path exists, but ref not viewable.
+		"/+/6d2439d2e920ba92d8e485e75d1b740ae51b609a/empty", // Path exists, but ref not viewable.
+		"/+/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",       // Valid ref, but is not a commit.
+		"/+archive/foo.zip",    // Invalid ref.
+		"/+archive/master.zip", // Valid ref, but is not viewable.
+		"/+archive/6d2439d2e920ba92d8e485e75d1b740ae51b609a.zip", // Valid ref, but is not viewable.
+		"/+log/foo",    // Invalid ref.
+		"/+log/master", // Valid ref, but is not viewable.
+		"/+log/6d2439d2e920ba92d8e485e75d1b740ae51b609a", // Valid ref, but is not viewable.
 		"/+log/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", // Valid ref, but is not a commit.
 	}
 	for _, path := range paths {
 		w := httptest.NewRecorder()
 
-		err := handleBrowse("testdata/repo.git", AuthorizationAllowed, "GET", "application/json", path, log, w)
+		err := handleBrowse(
+			context.Background(),
+			"testdata/repo.git",
+			AuthorizationAllowed,
+			protocol,
+			"GET",
+			"application/json",
+			path,
+			w,
+		)
 		if !base.HasErrorCategory(err, ErrNotFound) {
 			t.Errorf("For path %s, expected ErrNotFound, got: %v %v", path, err, w.Body.String())
 		}
