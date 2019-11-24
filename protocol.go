@@ -209,8 +209,10 @@ func (p *GitProtocol) PushPackfile(
 				if !ValidateFastForward(repository, commit, command.Reference) && !p.AllowNonFastForward {
 					command.err = ErrNonFastForward
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
+					p.log.Info("restricted ref", "ref", command.ReferenceName)
 					command.err = ErrRestrictedRef
 				} else if !p.ReferenceDiscoveryCallback(ctx, repository, command.ReferenceName) {
+					p.log.Info("user does not have access", "ref", command.ReferenceName)
 					command.err = ErrRestrictedRef
 				} else {
 					parentCommit := commit.Parent(0)
