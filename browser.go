@@ -583,43 +583,6 @@ func handleShow(
 		)
 	}
 	rev := splitPath[2]
-	if len(splitPath) == 3 {
-		// Show commit
-		obj, err := repository.RevparseSingle(rev)
-		if err != nil {
-			return nil, base.ErrorWithCategory(
-				ErrNotFound,
-				errors.Wrapf(
-					err,
-					"failed to parse revision %s",
-					rev,
-				),
-			)
-		}
-		defer obj.Free()
-		if obj.Type() != git.ObjectCommit {
-			return nil, base.ErrorWithCategory(
-				ErrNotFound,
-				errors.Wrapf(
-					err,
-					"revision %s is not a commit: %v",
-					rev,
-					obj.Type(),
-				),
-			)
-		}
-		commit, err := obj.AsCommit()
-		if err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"failed to get the commit for %s",
-				rev,
-			)
-		}
-		defer commit.Free()
-
-		return formatCommit(commit), nil
-	}
 
 	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
@@ -634,36 +597,68 @@ func handleShow(
 	}
 	defer obj.Free()
 
-	if err := isCommitIDReachable(
-		ctx,
-		repository,
-		level,
-		protocol,
-		obj.Id(),
-	); err != nil {
-		return nil, err
-	}
-
-	// Show path
-	rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
-	obj, err = repository.RevparseSingle(rev)
-	if err != nil {
+	if obj.Type() == git.ObjectCommit {
+		if err := isCommitIDReachable(
+			ctx,
+			repository,
+			level,
+			protocol,
+			obj.Id(),
+		); err != nil {
+			fmt.Printf("%v\n", rev)
+			return nil, err
+		}
+	} else if len(splitPath) != 3 {
 		return nil, base.ErrorWithCategory(
 			ErrNotFound,
 			errors.Wrapf(
 				err,
-				"failed to parse revision %s",
+				"failed to parse revision %s/%s",
 				rev,
+				splitPath[3],
 			),
 		)
 	}
-	defer obj.Free()
+
+	if len(splitPath) == 3 {
+		// URLs of the form /+/rev. Shows an object, typically a commit referenced
+		// by one of the named revisions (the ones that gitrevisions(7) supports),
+		// or any other object by its SHA-1 name.
+	} else {
+		// URLs of the form /+/rev/path. This shows either a tree or a blob.
+		rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
+		obj, err = repository.RevparseSingle(rev)
+		if err != nil {
+			return nil, base.ErrorWithCategory(
+				ErrNotFound,
+				errors.Wrapf(
+					err,
+					"failed to parse revision %s/%s",
+					rev,
+					splitPath[3],
+				),
+			)
+		}
+		defer obj.Free()
+	}
 
 	if method == "HEAD" {
 		return nil, nil
 	}
 
-	if obj.Type() == git.ObjectTree {
+	if obj.Type() == git.ObjectCommit {
+		commit, err := obj.AsCommit()
+		if err != nil {
+			return nil, errors.Wrapf(
+				err,
+				"failed to get the commit for %s",
+				rev,
+			)
+		}
+		defer commit.Free()
+
+		return formatCommit(commit), nil
+	} else if obj.Type() == git.ObjectTree {
 		tree, err := obj.AsTree()
 		if err != nil {
 			return nil, errors.Wrapf(
