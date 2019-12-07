@@ -8,7 +8,9 @@ branches:
     - master
 
 install:
-  - go get golang.org/x/lint/golint
+  - go install golang.org/x/lint/golint
+  - go mod edit -replace "github.com/lhchavez/git2go=${GOPATH}/src/github.com/lhchavez/git2go"
+  - git clone --recurse-submodules https://github.com/lhchavez/git2go "${GOPATH}/src/github.com/lhchavez/git2go"
   - go get -d github.com/lhchavez/git2go
   - (cd ${GOPATH}/src/github.com/lhchavez/git2go/ && ./script/build-libgit2-static.sh)
   - go get -tags=static -t ./...
