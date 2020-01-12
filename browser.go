@@ -221,7 +221,7 @@ func isCommitIDReachable(
 		if err = walk.Push(ref.Target()); err != nil {
 			return errors.Wrapf(
 				err,
-				"failed to add \"%s\"'s target to the revwalk",
+				"failed to add %q's target to the revwalk",
 				ref.Name(),
 			)
 		}
@@ -244,8 +244,15 @@ func isCommitIDReachable(
 
 	if !found {
 		// Even though the commit itself exists, we tell the caller that it
-		// doesn't.
-		return ErrNotFound
+		// doesn't, since it was not reachable from any of the references that they
+		// can view.
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Errorf(
+				"commit %s not reachable from any of the viewable references",
+				commitID.String(),
+			),
+		)
 	}
 
 	return nil
@@ -579,7 +586,7 @@ func handleShow(
 	if len(splitPath) < 3 {
 		return nil, base.ErrorWithCategory(
 			ErrNotFound,
-			errors.Errorf("invalid path: %s", requestPath),
+			errors.Errorf("invalid path: %q", requestPath),
 		)
 	}
 	rev := splitPath[2]
@@ -608,38 +615,37 @@ func handleShow(
 			fmt.Printf("%v\n", rev)
 			return nil, err
 		}
-	} else if len(splitPath) != 3 {
-		return nil, base.ErrorWithCategory(
-			ErrNotFound,
-			errors.Wrapf(
-				err,
-				"failed to parse revision %s/%s",
-				rev,
-				splitPath[3],
-			),
-		)
-	}
 
-	if len(splitPath) == 3 {
-		// URLs of the form /+/rev. Shows an object, typically a commit referenced
+		if len(splitPath) > 3 {
+			// URLs of the form /+/rev/path. This shows either a tree or a blob.
+			rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
+			obj, err = repository.RevparseSingle(rev)
+			if err != nil {
+				return nil, base.ErrorWithCategory(
+					ErrNotFound,
+					errors.Wrapf(
+						err,
+						"failed to parse revision %s",
+						rev,
+					),
+				)
+			}
+			defer obj.Free()
+		}
+	} else {
+		// URLs of the form /+/objectid. Shows an object, typically a commit referenced
 		// by one of the named revisions (the ones that gitrevisions(7) supports),
 		// or any other object by its SHA-1 name.
-	} else {
-		// URLs of the form /+/rev/path. This shows either a tree or a blob.
-		rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
-		obj, err = repository.RevparseSingle(rev)
-		if err != nil {
+		if len(splitPath) != 3 {
 			return nil, base.ErrorWithCategory(
 				ErrNotFound,
 				errors.Wrapf(
 					err,
-					"failed to parse revision %s/%s",
-					rev,
-					splitPath[3],
+					"cannot use paths with an object-id for %q",
+					splitPath,
 				),
 			)
 		}
-		defer obj.Free()
 	}
 
 	if method == "HEAD" {
