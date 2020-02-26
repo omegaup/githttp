@@ -1,8 +1,6 @@
 package githttp
 
 import (
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
 	"io"
 	"io/ioutil"
 	"os"
@@ -12,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
 )
 
 func TestSplitTrees(t *testing.T) {

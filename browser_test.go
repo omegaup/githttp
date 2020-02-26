@@ -4,11 +4,12 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
 )
 
 func TestHandleRefs(t *testing.T) {
