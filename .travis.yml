@@ -2,6 +2,7 @@ language: go
 
 go:
   - "1.13"
+  - "1.14"
 
 branches:
   only:
@@ -9,9 +10,9 @@ branches:
 
 install:
   - go install golang.org/x/lint/golint
-  - go mod edit -replace "github.com/lhchavez/git2go=${GOPATH}/src/github.com/lhchavez/git2go"
+  - go mod edit -replace "github.com/lhchavez/git2go/v29=${GOPATH}/src/github.com/lhchavez/git2go"
   - git clone --recurse-submodules https://github.com/lhchavez/git2go "${GOPATH}/src/github.com/lhchavez/git2go"
-  - go get -d github.com/lhchavez/git2go
+  - go get -d github.com/lhchavez/git2go/v29
   - (cd ${GOPATH}/src/github.com/lhchavez/git2go/ && ./script/build-libgit2-static.sh)
   - go get -tags=static -t ./...
 

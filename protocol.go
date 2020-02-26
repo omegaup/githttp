@@ -4,10 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/inconshreveable/log15"
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -15,6 +11,11 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/inconshreveable/log15"
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -263,6 +264,15 @@ func (p *GitProtocol) PushPackfile(
 	err = commitPackfile(packPath, writepack)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to commit packfile"), nil
+	}
+
+	err = odb.Refresh()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to refresh odb"), nil
+	}
+	err = odb.WriteMultiPackIndex()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to write multi-pack-index"), nil
 	}
 
 	updatedRefs = make([]UpdatedRef, 0)

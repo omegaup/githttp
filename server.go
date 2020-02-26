@@ -4,14 +4,15 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
-	"github.com/inconshreveable/log15"
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/inconshreveable/log15"
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
 )
 
 // A GitOperation describes the current operation
