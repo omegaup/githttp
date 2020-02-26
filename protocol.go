@@ -265,6 +265,15 @@ func (p *GitProtocol) PushPackfile(
 		return nil, errors.Wrap(err, "failed to commit packfile"), nil
 	}
 
+	err = odb.Refresh()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to refresh odb"), nil
+	}
+	err = odb.WriteMultiPackIndex()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to write multi-pack-index"), nil
+	}
+
 	updatedRefs = make([]UpdatedRef, 0)
 	for _, command := range commands {
 		ref, err := repository.References.Create(
