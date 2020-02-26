@@ -3,9 +3,10 @@ package githttp
 import (
 	"errors"
 	"fmt"
-	git "github.com/lhchavez/git2go"
 	"io"
 	"os"
+
+	git "github.com/lhchavez/git2go/v29"
 )
 
 const (

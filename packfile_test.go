@@ -1,10 +1,11 @@
 package githttp
 
 import (
-	git "github.com/lhchavez/git2go"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	git "github.com/lhchavez/git2go/v29"
 )
 
 const (

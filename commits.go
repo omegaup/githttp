@@ -3,9 +3,6 @@ package githttp
 import (
 	stderrors "errors"
 	"fmt"
-	"github.com/inconshreveable/log15"
-	git "github.com/lhchavez/git2go"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -13,6 +10,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/inconshreveable/log15"
+	git "github.com/lhchavez/git2go/v29"
+	"github.com/pkg/errors"
 )
 
 const (

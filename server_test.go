@@ -3,8 +3,6 @@ package githttp
 import (
 	"bytes"
 	"context"
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
 )
 
 func allowAuthorizationCallback(

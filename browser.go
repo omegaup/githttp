@@ -7,14 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
-	"github.com/pkg/errors"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
+	"github.com/pkg/errors"
 )
 
 const (

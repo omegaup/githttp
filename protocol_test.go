@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	git "github.com/lhchavez/git2go"
-	base "github.com/omegaup/go-base"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,6 +12,9 @@ import (
 	"regexp"
 	"testing"
 	"time"
+
+	git "github.com/lhchavez/git2go/v29"
+	base "github.com/omegaup/go-base"
 )
 
 func gitOid(hash string) git.Oid {
