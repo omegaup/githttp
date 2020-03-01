@@ -1,12 +1,13 @@
 package githttp
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
 
 	git "github.com/lhchavez/git2go/v29"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -27,15 +28,15 @@ var (
 
 	// ErrInvalidMagic is returned when the index file does not start with the
 	// magic header.
-	ErrInvalidMagic = errors.New("bad pack header")
+	ErrInvalidMagic = stderrors.New("bad pack header")
 
 	// ErrInvalidVersion is returned when the index file does not have the
 	// expected version (2).
-	ErrInvalidVersion = errors.New("bad pack version")
+	ErrInvalidVersion = stderrors.New("bad pack version")
 
 	// ErrLargePackfile is returned when an offset in a packfile would overflow a
 	// 32-bit signed integer.
-	ErrLargePackfile = errors.New("packfile too large")
+	ErrLargePackfile = stderrors.New("packfile too large")
 )
 
 // A PackfileIndex represents the contents of an .idx file.
@@ -90,7 +91,7 @@ func ParseIndex(filename string, odb *git.Odb) (*PackfileIndex, error) {
 	index := &PackfileIndex{}
 	for i := 0; i < 256; i++ {
 		if index.Fanout[i], err = readUInt32(f); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to read index %d of the OID fanout table", i)
 		}
 	}
 	index.Entries = make([]PackfileEntry, index.Fanout[255])
@@ -98,21 +99,21 @@ func ParseIndex(filename string, odb *git.Odb) (*PackfileIndex, error) {
 	// Next come the sorted OIDs for all the objects in the packfile.
 	for i := 0; i < len(index.Entries); i++ {
 		if _, err = f.Read(index.Entries[i].Oid[:]); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to read index %d of the OID lookup table", i)
 		}
 		// Sizes and types are obtained from the object database.
 		index.Entries[i].Size, index.Entries[i].Type, err = odb.ReadHeader(
 			&index.Entries[i].Oid,
 		)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to read header of OID %v", index.Entries[i].Oid)
 		}
 	}
 
 	// Afterwards, the CRC checksums of all the entries.
 	for i := 0; i < len(index.Entries); i++ {
 		if index.Entries[i].CRC, err = readUInt32(f); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to read index %d of the CRC checksum table", i)
 		}
 	}
 
@@ -120,7 +121,7 @@ func ParseIndex(filename string, odb *git.Odb) (*PackfileIndex, error) {
 	for i := 0; i < len(index.Entries); i++ {
 		offset, err := readUInt32(f)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to read index %d of the OID Offsets table", i)
 		}
 		if offset&msb32 != 0 {
 			return nil, ErrLargePackfile
@@ -157,31 +158,31 @@ func UnpackPackfile(
 		progressCallback,
 	)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "failed to create a new indexer")
 	}
 	defer indexer.Free()
 	_, err = io.Copy(indexer, r)
 	if err != nil {
-		return nil, "", errors.New("eof")
+		return nil, "", stderrors.New("eof")
 	}
 	hash, err := indexer.Commit()
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "failed to commit")
 	}
 
 	// With the index file, we can inspect the contents of the packfile.
 	indexPath := fmt.Sprintf("%s/pack-%s.idx", dir, hash)
 	backend, err := git.NewOdbBackendOnePack(indexPath)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "failed to create a onepack backend")
 	}
 	if err := odb.AddAlternate(backend, 1); err != nil {
 		backend.Free()
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "failed to add an alternate backend")
 	}
 	index, err := ParseIndex(indexPath, odb)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "failed to parse index")
 	}
 	for _, entry := range index.Entries {
 		switch entry.Type {
@@ -190,7 +191,7 @@ func UnpackPackfile(
 		case git.ObjectBlob:
 			// This is fine.
 		default:
-			return nil, "", errors.New("object-type-unallowed")
+			return nil, "", stderrors.New("object-type-unallowed")
 		}
 	}
 
