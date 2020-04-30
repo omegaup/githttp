@@ -81,6 +81,7 @@ type TreeEntryResult struct {
 	Type string       `json:"type"`
 	ID   string       `json:"id"`
 	Name string       `json:"name"`
+	Size int64        `json:"size"`
 }
 
 // A TreeResult represents a git tree.
@@ -136,27 +137,43 @@ func formatCommit(
 }
 
 func formatTreeEntry(
+	repository *git.Repository,
 	entry *git.TreeEntry,
-) *TreeEntryResult {
-	return &TreeEntryResult{
+) (*TreeEntryResult, error) {
+	treeEntryResult := &TreeEntryResult{
 		Mode: entry.Filemode,
 		Type: strings.ToLower(entry.Type.String()),
 		ID:   entry.Id.String(),
 		Name: entry.Name,
 	}
+
+	if entry.Type == git.ObjectBlob {
+		blob, err := repository.LookupBlob(entry.Id)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to lookup blob %s (%s)", entry.Id, entry.Name)
+		}
+		treeEntryResult.Size = blob.Size()
+		blob.Free()
+	}
+
+	return treeEntryResult, nil
 }
 
 func formatTree(
+	repository *git.Repository,
 	tree *git.Tree,
-) *TreeResult {
+) (*TreeResult, error) {
 	result := &TreeResult{
 		ID:      tree.Id().String(),
 		Entries: make([]*TreeEntryResult, tree.EntryCount()),
 	}
 	for i := uint64(0); i < tree.EntryCount(); i++ {
-		result.Entries[i] = formatTreeEntry(tree.EntryByIndex(i))
+		var err error
+		if result.Entries[i], err = formatTreeEntry(repository, tree.EntryByIndex(i)); err != nil {
+			return nil, err
+		}
 	}
-	return result
+	return result, nil
 }
 
 func formatBlob(
@@ -676,7 +693,7 @@ func handleShow(
 		}
 		defer tree.Free()
 
-		return formatTree(tree), nil
+		return formatTree(repository, tree)
 	} else if obj.Type() == git.ObjectBlob {
 		blob, err := obj.AsBlob()
 		if err != nil {

@@ -381,6 +381,7 @@ func TestHandleShowTree(t *testing.T) {
 				Mode: 0100644,
 				Type: "blob",
 				Name: "empty",
+				Size: 0,
 			},
 		},
 	}
