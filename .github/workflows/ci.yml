@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+
+jobs:
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        go:
+          - 1.13
+          - 1.14
+    name: Go ${{ matrix.go }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+        id: go
+
+      - name: Install golint
+        run: go install golang.org/x/lint/golint
+
+      - name: Install git2go
+        run: |
+          export GOPATH="$(go env GOPATH)"
+          go mod edit -replace "github.com/lhchavez/git2go/v29=${GOPATH}/src/github.com/lhchavez/git2go"
+          git clone --recurse-submodules https://github.com/lhchavez/git2go "${GOPATH}/src/github.com/lhchavez/git2go"
+          go get -d github.com/lhchavez/git2go/v29
+          (cd "${GOPATH}/src/github.com/lhchavez/git2go/" && ./script/build-libgit2-static.sh)
+
+      - name: Lint
+        run: golint -set_exit_status ./...
+
+      - name: Get dependencies
+        run: go get -tags=static -t -v ./...
+
+      - name: Vet
+        run: go vet -tags=static -v ./...
+
+      - name: Test
+        env:
+          GIT_AUTHOR_EMAIL: githttp@test.com
+          GIT_AUTHOR_NAME: Git Test User
+        run: go test -tags=static -v  -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Ensure formatting
+        run: |
+          if [[ $(git ls-tree -r HEAD^{tree} . --full-name --name-only | \
+                  grep '\.go$' | \
+                  xargs -n 1 gofmt -d | \
+                  wc -c) -ne 0 \
+          ]]; then
+            echo "please run gofmt on all the files"
+            exit 1
+          fi
+
+      - name: Upload code coverage
+        run: bash <(curl -s https://codecov.io/bash)
