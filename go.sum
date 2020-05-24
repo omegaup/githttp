@@ -78,6 +78,8 @@ github.com/omegaup/go-base v0.0.0-20190624033755-26f895597739 h1:EIcs0V5rPdPbxPG
 github.com/omegaup/go-base v0.0.0-20190624033755-26f895597739/go.mod h1:Ld9zYiCL9kA2+KrFVYP7baFzwQYAApOt3A3YZbmbPvE=
 github.com/omegaup/go-base v0.0.0-20191207155839-a2f061e96808 h1:5MSiF/KV5ZdOrPraqJHCSBomQjLvAPD+Uvk0zJoCmZc=
 github.com/omegaup/go-base v0.0.0-20191207155839-a2f061e96808/go.mod h1:KRWOUExqxHkr/h1GiHEtAKGp4rx6mOGWsBSlN636INY=
+github.com/omegaup/go-base v1.0.1 h1:7771a0jnJm4CPuK2lJxb56w03ASM1BkYLLfnYwhPagA=
+github.com/omegaup/go-base v1.0.1/go.mod h1:KRWOUExqxHkr/h1GiHEtAKGp4rx6mOGWsBSlN636INY=
 github.com/omegaup/quark v1.1.22 h1:OBpjEeNGFw8eCjIzJ4XeVVXp7mph9dGJWt/tTRHrhAQ=
 github.com/omegaup/quark v1.1.22/go.mod h1:KlaNAz7eVTSsDyeQbrcmYbaWLjEp8/szcxq1sfdf1AY=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

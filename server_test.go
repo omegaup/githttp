@@ -16,6 +16,15 @@ import (
 	base "github.com/omegaup/go-base"
 )
 
+var (
+	gitCommandEnv = []string{
+		"GIT_AUTHOR_EMAIL=githttp@test.com",
+		"GIT_AUTHOR_NAME=Git Test User",
+		"GIT_COMMITTER_EMAIL=githttp@test.com",
+		"GIT_COMMITTER_NAME=Git Test User",
+	}
+)
+
 func allowAuthorizationCallback(
 	ctx context.Context,
 	w http.ResponseWriter,
@@ -53,12 +62,14 @@ func TestServerClone(t *testing.T) {
 	repoDir := filepath.Join(dir, "repo")
 
 	cmd := exec.Command(gitcmd, "clone", ts.URL+"/repo/", repoDir)
+	cmd.Env = gitCommandEnv
 	cmd.Stdin = strings.NewReader("foo\nbar\n")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to run git clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "log", "--pretty=%h")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	output, err := cmd.CombinedOutput()
 	if err != nil || !bytes.Equal(output, []byte("6d2439d\n88aa345\n")) {
@@ -93,24 +104,28 @@ func TestServerCloneShallow(t *testing.T) {
 	repoDir := filepath.Join(dir, "repo")
 
 	cmd := exec.Command(gitcmd, "clone", "--depth=1", ts.URL+"/repo/", repoDir)
+	cmd.Env = gitCommandEnv
 	cmd.Stdin = strings.NewReader("foo\nbar\n")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to run git clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "log", "--pretty=%h")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil || !bytes.Equal(output, []byte("6d2439d\n")) {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "fetch", "--unshallow")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "log", "--pretty=%h")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil || !bytes.Equal(output, []byte("6d2439d\n88aa345\n")) {
 		t.Errorf("Failed to clone: %v %q", err, output)
@@ -157,12 +172,14 @@ func TestServerPush(t *testing.T) {
 	upstreamURL := ts.URL + "/repo/"
 
 	cmd := exec.Command(gitcmd, "clone", "--depth=1", upstreamURL, repoDir)
+	cmd.Env = gitCommandEnv
 	cmd.Stdin = strings.NewReader("foo\nbar\n")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to run git clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "remote", "get-url", "--push", "origin")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil || !strings.HasPrefix(string(output), upstreamURL) {
 		t.Errorf("Failed to clone: %v %q", err, string(output))
@@ -173,30 +190,35 @@ func TestServerPush(t *testing.T) {
 	}
 
 	cmd = exec.Command(gitcmd, "add", "empty")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "commit", "--all", "--message", "Empty")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "show")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "push", "--porcelain", "-u", "origin", "HEAD:changes/initial")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "push", "--porcelain", "-u", "origin", "HEAD:master")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
@@ -243,12 +265,14 @@ func TestGitbomb(t *testing.T) {
 	upstreamURL := ts.URL + "/repo/"
 
 	cmd := exec.Command(gitcmd, "clone", "--depth=1", upstreamURL, repoDir)
+	cmd.Env = gitCommandEnv
 	cmd.Stdin = strings.NewReader("foo\nbar\n")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to run git clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "remote", "get-url", "--push", "origin")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil || !strings.HasPrefix(string(output), upstreamURL) {
 		t.Errorf("Failed to clone: %v %q", err, string(output))
@@ -259,30 +283,35 @@ func TestGitbomb(t *testing.T) {
 	}
 
 	cmd = exec.Command(gitcmd, "add", "empty")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "commit", "--all", "--message", "Empty")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "show")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "push", "--porcelain", "-u", "origin", "HEAD:changes/initial")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
 	}
 
 	cmd = exec.Command(gitcmd, "push", "--porcelain", "-u", "origin", "HEAD:master")
+	cmd.Env = gitCommandEnv
 	cmd.Dir = repoDir
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("Failed to clone: %v %q", err, output)
