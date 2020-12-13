@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/inconshreveable/log15"
-	git "github.com/lhchavez/git2go/v29"
+	git "github.com/lhchavez/git2go/v32"
 	base "github.com/omegaup/go-base"
 	"github.com/pkg/errors"
 )
@@ -486,7 +486,7 @@ func handleInfoRefs(
 	defer it.Free()
 
 	head, err := repository.Head()
-	if err != nil && !git.IsErrorCode(err, git.ErrUnbornBranch) {
+	if err != nil && !git.IsErrorCode(err, git.ErrorCodeUnbornBranch) {
 		return errors.Wrap(
 			err,
 			"failed to read HEAD",
@@ -518,7 +518,7 @@ func handleInfoRefs(
 	for {
 		ref, err := it.Next()
 		if err != nil {
-			if !git.IsErrorCode(err, git.ErrIterOver) {
+			if !git.IsErrorCode(err, git.ErrorCodeIterOver) {
 				log.Error("Error getting reference", "err", err)
 			}
 			break
