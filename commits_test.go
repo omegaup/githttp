@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	git "github.com/lhchavez/git2go/v29"
+	git "github.com/lhchavez/git2go/v32"
 	base "github.com/omegaup/go-base"
 )
 
@@ -92,15 +92,16 @@ func TestSplitTrees(t *testing.T) {
 		defer splitTree.Free()
 
 		newPaths := make([]string, 0)
-		if err = splitTree.Walk(func(parent string, entry *git.TreeEntry) int {
+		err = splitTree.Walk(func(parent string, entry *git.TreeEntry) error {
 			path := path.Join(parent, entry.Name)
 			log.Debug("Considering", "path", path, "entry", *entry)
 			if entry.Type != git.ObjectBlob {
-				return 0
+				return nil
 			}
 			newPaths = append(newPaths, path)
-			return 0
-		}); err != nil {
+			return nil
+		})
+		if err != nil {
 			t.Fatalf("Failed to walk the split git tree for %v: %v", paths, err)
 		}
 

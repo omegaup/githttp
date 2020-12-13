@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	git "github.com/lhchavez/git2go/v29"
+	git "github.com/lhchavez/git2go/v32"
 	base "github.com/omegaup/go-base"
 	"github.com/pkg/errors"
 )
@@ -219,7 +219,7 @@ func isCommitIDReachable(
 	for {
 		ref, err := it.Next()
 		if err != nil {
-			if git.IsErrorCode(err, git.ErrIterOver) {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 				break
 			}
 			return errors.Wrap(
@@ -302,7 +302,7 @@ func handleRefs(
 	for {
 		ref, err := it.Next()
 		if err != nil {
-			if git.IsErrorCode(err, git.ErrIterOver) {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
 				break
 			}
 			return nil, errors.Wrap(

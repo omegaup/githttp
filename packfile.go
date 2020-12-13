@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	git "github.com/lhchavez/git2go/v29"
+	git "github.com/lhchavez/git2go/v32"
 	"github.com/pkg/errors"
 )
 
@@ -143,11 +143,11 @@ func UnpackPackfile(
 	odb *git.Odb,
 	r io.Reader,
 	dir string,
-	progressCallback func(git.TransferProgress) git.ErrorCode,
+	progressCallback func(git.TransferProgress) error,
 ) (*PackfileIndex, string, error) {
 	if progressCallback == nil {
-		progressCallback = func(stats git.TransferProgress) git.ErrorCode {
-			return git.ErrorCode(0)
+		progressCallback = func(stats git.TransferProgress) error {
+			return nil
 		}
 	}
 

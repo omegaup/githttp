@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/inconshreveable/log15"
-	git "github.com/lhchavez/git2go/v29"
+	git "github.com/lhchavez/git2go/v32"
 	"github.com/pkg/errors"
 )
 
@@ -326,12 +326,10 @@ func SplitCommit(
 	}
 
 	objectCount := 0
-	var walkErr error
-	if err := originalTree.Walk(func(parent string, entry *git.TreeEntry) int {
+	err = originalTree.Walk(func(parent string, entry *git.TreeEntry) error {
 		objectCount++
 		if objectCount > objectLimit {
-			walkErr = ErrObjectLimitExceeded
-			return -1
+			return ErrObjectLimitExceeded
 		}
 		path := path.Join(parent, entry.Name)
 		log.Debug("Considering", "path", path, "entry", *entry)
@@ -342,9 +340,10 @@ func SplitCommit(
 				break
 			}
 		}
-		return 0
-	}); err != nil || walkErr != nil {
-		return nil, walkErr
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	splitResult := make([]SplitCommitResult, 0)

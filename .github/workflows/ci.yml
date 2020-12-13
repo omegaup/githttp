@@ -13,8 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - 1.13
           - 1.14
+          - 1.15
     name: Go ${{ matrix.go }}
 
     runs-on: ubuntu-latest
@@ -35,9 +35,9 @@ jobs:
       - name: Install git2go
         run: |
           export GOPATH="$(go env GOPATH)"
-          go mod edit -replace "github.com/lhchavez/git2go/v29=${GOPATH}/src/github.com/lhchavez/git2go"
-          git clone --recurse-submodules https://github.com/lhchavez/git2go "${GOPATH}/src/github.com/lhchavez/git2go"
-          go get -d github.com/lhchavez/git2go/v29
+          go mod edit -replace "github.com/lhchavez/git2go/v32=${GOPATH}/src/github.com/lhchavez/git2go"
+          git clone --recurse-submodules https://github.com/lhchavez/git2go -b v32.0.0-prerelease.0 "${GOPATH}/src/github.com/lhchavez/git2go"
+          go get -d github.com/lhchavez/git2go/v32
           (cd "${GOPATH}/src/github.com/lhchavez/git2go/" && ./script/build-libgit2-static.sh)
 
       - name: Lint
