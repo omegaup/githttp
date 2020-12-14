@@ -136,41 +136,72 @@ func formatCommit(
 	return result
 }
 
-func formatTreeEntry(
-	repository *git.Repository,
-	entry *git.TreeEntry,
-) (*TreeEntryResult, error) {
-	treeEntryResult := &TreeEntryResult{
-		Mode: entry.Filemode,
-		Type: strings.ToLower(entry.Type.String()),
-		ID:   entry.Id.String(),
-		Name: entry.Name,
-	}
-
-	if entry.Type == git.ObjectBlob {
-		blob, err := repository.LookupBlob(entry.Id)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to lookup blob %s (%s)", entry.Id, entry.Name)
-		}
-		treeEntryResult.Size = blob.Size()
-		blob.Free()
-	}
-
-	return treeEntryResult, nil
-}
-
+// formatTree reads the raw git tree data, parses it, and looks up the file
+// size for all the blobs in the tree. This is done to avoid having to make ~5
+// cgo calls per entry, which makes things a bit faster.
 func formatTree(
 	repository *git.Repository,
-	tree *git.Tree,
+	treeID *git.Oid,
 ) (*TreeResult, error) {
-	result := &TreeResult{
-		ID:      tree.Id().String(),
-		Entries: make([]*TreeEntryResult, tree.EntryCount()),
+	odb, err := repository.Odb()
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			"failed to get odb for repository",
+		)
 	}
-	for i := uint64(0); i < tree.EntryCount(); i++ {
-		var err error
-		if result.Entries[i], err = formatTreeEntry(repository, tree.EntryByIndex(i)); err != nil {
-			return nil, err
+	defer odb.Free()
+	odbObj, err := odb.Read(treeID)
+	if err != nil {
+		return nil, errors.Wrapf(
+			err,
+			"failed to lookup %s",
+			treeID,
+		)
+	}
+	defer odbObj.Free()
+
+	result := &TreeResult{
+		ID: treeID.String(),
+	}
+	treeData := odbObj.Data()
+	for len(treeData) > 0 {
+		idx := bytes.IndexRune(treeData, ' ')
+		if idx == -1 {
+			return nil, fmt.Errorf("malformed tree %s: no space", treeID)
+		}
+		mode, err := strconv.ParseInt(string(treeData[:idx]), 8, 32)
+		if err != nil {
+			return nil, fmt.Errorf("malformed tree %s: no mode", treeID)
+		}
+		treeData = treeData[idx+1:]
+		idx = bytes.IndexByte(treeData, 0)
+		if idx == -1 || len(treeData) < idx+1+len(git.Oid{}) {
+			return nil, fmt.Errorf("malformed tree %s: no name", treeID)
+		}
+		name := string(treeData[:idx])
+		treeData = treeData[idx+1:]
+		oid := git.NewOidFromBytes(treeData)
+		treeData = treeData[len(oid):]
+
+		treeEntryResult := &TreeEntryResult{
+			Mode: git.Filemode(mode),
+			ID:   oid.String(),
+			Name: name,
+		}
+		result.Entries = append(result.Entries, treeEntryResult)
+
+		if mode == 0o160000 {
+			treeEntryResult.Type = "commit"
+		} else if (mode & 0o100000) != 0 {
+			treeEntryResult.Type = "blob"
+			size, _, err := odb.ReadHeader(oid)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to lookup blob %s:%s", oid, name)
+			}
+			treeEntryResult.Size = int64(size)
+		} else {
+			treeEntryResult.Type = "tree"
 		}
 	}
 	return result, nil
@@ -207,15 +238,7 @@ func isCommitIDReachable(
 	}
 	defer it.Free()
 
-	walk, err := repository.Walk()
-	if err != nil {
-		return errors.Wrap(
-			err,
-			"failed to create the repository revwalk",
-		)
-	}
-	defer walk.Free()
-
+	oids := []*git.Oid{commitID}
 	for {
 		ref, err := it.Next()
 		if err != nil {
@@ -236,39 +259,21 @@ func isCommitIDReachable(
 			continue
 		}
 
-		if err = walk.Push(ref.Target()); err != nil {
-			return errors.Wrapf(
-				err,
-				"failed to add %q's target to the revwalk",
-				ref.Name(),
-			)
-		}
+		oids = append(oids, ref.Target())
 	}
 
-	found := false
-	if err := walk.Iterate(func(reachableCommit *git.Commit) bool {
-		defer reachableCommit.Free()
-		if commitID.Equal(reachableCommit.Id()) {
-			found = true
-			return false
-		}
-		return true
-	}); err != nil {
-		return errors.Wrap(
-			err,
-			"failed to walk the repository",
-		)
-	}
-
-	if !found {
+	_, err = repository.MergeBaseMany(oids)
+	if err != nil {
 		// Even though the commit itself exists, we tell the caller that it
 		// doesn't, since it was not reachable from any of the references that they
 		// can view.
 		return base.ErrorWithCategory(
 			ErrNotFound,
 			errors.Errorf(
-				"commit %s not reachable from any of the viewable references",
+				"commit %s not reachable from any of the viewable references: %v %v",
 				commitID.String(),
+				oids,
+				err,
 			),
 		)
 	}
@@ -535,60 +540,56 @@ func handleArchive(
 	z := zip.NewWriter(w)
 	defer z.Close()
 
-	var walkErr error
-	if err := tree.Walk(func(parent string, entry *git.TreeEntry) int {
+	err = tree.Walk(func(parent string, entry *git.TreeEntry) error {
 		fullPath := path.Join(parent, entry.Name)
 		if entry.Type == git.ObjectTree {
 			_, err := z.CreateHeader(&zip.FileHeader{
 				Name: fullPath + "/",
 			})
 			if err != nil {
-				walkErr = errors.Wrap(
+				return errors.Wrap(
 					err,
 					"failed to create zip header",
 				)
-				return -1
 			}
-			return 0
+			return nil
 		}
 
 		// Object is a blob.
 		w, err := z.Create(fullPath)
 		if err != nil {
-			walkErr = errors.Wrap(
+			return errors.Wrap(
 				err,
 				"failed to create zip writer",
 			)
-			return -1
 		}
 
 		blob, err := repository.LookupBlob(entry.Id)
 		if err != nil {
-			walkErr = errors.Wrapf(
+			return errors.Wrapf(
 				err,
 				"failed to lookup object %s",
 				entry.Id,
 			)
-			return -1
 		}
 		defer blob.Free()
 
 		if _, err := w.Write(blob.Contents()); err != nil {
-			walkErr = errors.Wrapf(
+			return errors.Wrapf(
 				err,
 				"failed to write object %s",
 				entry.Id,
 			)
-			return -1
 		}
-		return 0
-	}); err != nil {
+		return nil
+	})
+	if err != nil {
 		return errors.Wrap(
 			err,
 			"failed to walk the repository",
 		)
 	}
-	return walkErr
+	return nil
 }
 
 func handleShow(
@@ -683,17 +684,7 @@ func handleShow(
 
 		return formatCommit(commit), nil
 	} else if obj.Type() == git.ObjectTree {
-		tree, err := obj.AsTree()
-		if err != nil {
-			return nil, errors.Wrapf(
-				err,
-				"failed to get tree for %s",
-				rev,
-			)
-		}
-		defer tree.Free()
-
-		return formatTree(repository, tree)
+		return formatTree(repository, obj.Id())
 	} else if obj.Type() == git.ObjectBlob {
 		blob, err := obj.AsBlob()
 		if err != nil {
