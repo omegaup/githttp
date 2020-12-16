@@ -262,6 +262,7 @@ type gitHTTPHandler struct {
 	repositorySuffix string
 	enableBrowse     bool
 	contextCallback  ContextCallback
+	lockfileManager  *LockfileManager
 	protocol         *GitProtocol
 	tracing          tracing.Provider
 	log              logging.Logger
@@ -342,7 +343,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, log, w); err != nil {
+		if err := handlePrePull(ctx, h.lockfileManager, repositoryPath, level, h.protocol, log, w); err != nil {
 			log.Error(
 				"Request",
 				map[string]any{
@@ -373,7 +374,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePull(ctx, repositoryPath, level, log, r.Body, w); err != nil {
+		if err := handlePull(ctx, h.lockfileManager, repositoryPath, level, log, r.Body, w); err != nil {
 			log.Error(
 				"Request",
 				map[string]any{
@@ -418,7 +419,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, log, w); err != nil {
+		if err := handlePrePush(ctx, h.lockfileManager, repositoryPath, level, h.protocol, log, w); err != nil {
 			log.Error(
 				"Request",
 				map[string]any{
@@ -464,6 +465,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		if err := handlePush(
 			ctx,
+			h.lockfileManager,
 			repositoryPath,
 			level,
 			h.protocol,
@@ -518,6 +520,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := handleBrowse(
 			ctx,
+			h.lockfileManager,
 			repositoryPath,
 			level,
 			h.protocol,
@@ -569,6 +572,7 @@ type GitServerOpts struct {
 	RepositorySuffix string
 	EnableBrowse     bool
 	Protocol         *GitProtocol
+	LockfileManager  *LockfileManager
 	ContextCallback  ContextCallback
 	Log              logging.Logger
 	Tracing          tracing.Provider
@@ -592,6 +596,7 @@ func NewGitServer(opts GitServerOpts) http.Handler {
 		repositorySuffix: opts.RepositorySuffix,
 		enableBrowse:     opts.EnableBrowse,
 		contextCallback:  opts.ContextCallback,
+		lockfileManager:  opts.LockfileManager,
 		protocol:         opts.Protocol,
 		log:              opts.Log,
 		tracing:          opts.Tracing,

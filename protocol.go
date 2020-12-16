@@ -476,6 +476,7 @@ func commitPackfile(packPath string, writepack *git.OdbWritepack) error {
 // what references to push/pull.
 func handleInfoRefs(
 	ctx context.Context,
+	m *LockfileManager,
 	repositoryPath string,
 	serviceName string,
 	capabilities Capabilities,
@@ -495,7 +496,7 @@ func handleInfoRefs(
 	}
 	defer repository.Free()
 
-	lockfile := NewLockfile(repository.Path())
+	lockfile := m.NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
 		log.Info(
 			"Waiting for the lockfile",
@@ -602,6 +603,7 @@ func handleInfoRefs(
 // discovery.
 func handlePrePull(
 	ctx context.Context,
+	m *LockfileManager,
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
@@ -610,6 +612,7 @@ func handlePrePull(
 ) error {
 	return handleInfoRefs(
 		ctx,
+		m,
 		repositoryPath,
 		"git-upload-pack",
 		pullCapabilities,
@@ -628,6 +631,7 @@ func handlePrePull(
 // contained in the requested commits.
 func handlePull(
 	ctx context.Context,
+	m *LockfileManager,
 	repositoryPath string,
 	level AuthorizationLevel,
 	log logging.Logger,
@@ -643,7 +647,7 @@ func handlePull(
 	}
 	defer repository.Free()
 
-	lockfile := NewLockfile(repository.Path())
+	lockfile := m.NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
 		log.Info(
 			"Waiting for the lockfile",
@@ -933,6 +937,7 @@ func handlePull(
 // references it can update.
 func handlePrePush(
 	ctx context.Context,
+	m *LockfileManager,
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
@@ -941,6 +946,7 @@ func handlePrePush(
 ) error {
 	return handleInfoRefs(
 		ctx,
+		m,
 		repositoryPath,
 		"git-receive-pack",
 		pushCapabilities,
@@ -958,6 +964,7 @@ func handlePrePush(
 // and commits the change if it is allowed.
 func handlePush(
 	ctx context.Context,
+	m *LockfileManager,
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
@@ -974,7 +981,7 @@ func handlePush(
 	}
 	defer repository.Free()
 
-	lockfile := NewLockfile(repository.Path())
+	lockfile := m.NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
 		log.Info(
 			"Waiting for the lockfile",
