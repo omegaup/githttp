@@ -243,6 +243,8 @@ func TestSpliceCommit(t *testing.T) {
 	if os.Getenv("PRESERVE") == "" {
 		defer os.RemoveAll(dir)
 	}
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	repository, err := git.InitRepository(dir, true)
 	if err != nil {
@@ -304,6 +306,7 @@ func TestSpliceCommit(t *testing.T) {
 	newPackPath := path.Join(dir, "new.pack")
 	newCommands, err := SpliceCommit(
 		repository,
+		m,
 		originalCommit,
 		nil,
 		map[string]io.Reader{

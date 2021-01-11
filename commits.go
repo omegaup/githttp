@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/omegaup/go-base/v3/logging"
-	"github.com/omegaup/go-base/v3/tracing"
 
 	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
@@ -456,6 +455,7 @@ func SplitCommit(
 // the caller already has acquired one.
 func SpliceCommit(
 	repository *git.Repository,
+	lockfileManager *LockfileManager,
 	commit, parentCommit *git.Commit,
 	overrides map[string]io.Reader,
 	descriptions []SplitCommitDescription,
@@ -466,13 +466,13 @@ func SpliceCommit(
 	newPackPath string,
 	log logging.Logger,
 ) ([]*GitCommand, error) {
-	newRepository, err := openRepository(context.TODO(), repository.Path())
+	newHandle, err := OpenRepositoryHandle(context.TODO(), lockfileManager, repository.Path(), log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open git repository at %s", repository.Path())
 	}
-	defer newRepository.Free()
+	defer newHandle.Release()
 
-	odb, err := newRepository.Odb()
+	odb, err := newHandle.Repository.Odb()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open git odb")
 	}
@@ -500,7 +500,7 @@ func SpliceCommit(
 	defer originalTree.Free()
 
 	if len(overrides) != 0 {
-		overrideTree, err := BuildTree(newRepository, overrides, log)
+		overrideTree, err := BuildTree(newHandle.Repository, overrides, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create the override tree for commit %s", commit.Id())
 		}
@@ -510,11 +510,11 @@ func SpliceCommit(
 			return nil, errors.Wrapf(err, "failed to obtain the override tree for commit %s", commit.Id())
 		}
 		defer originalTree.Free()
-		if err = copyTree(repository, originalTree.Id(), newRepository); err != nil {
+		if err = copyTree(repository, originalTree.Id(), newHandle.Repository); err != nil {
 			return nil, errors.Wrap(err, "failed to copy the tree to the new repository")
 		}
 		mergedOverrideTree, err := MergeTrees(
-			newRepository,
+			newHandle.Repository,
 			overrideTree,
 			originalTree,
 		)
@@ -527,7 +527,7 @@ func SpliceCommit(
 		if parentCommit != nil {
 			overrideCommitParents = append(overrideCommitParents, parentCommit.Id())
 		}
-		overrideCommitID, err := newRepository.CreateCommitFromIds(
+		overrideCommitID, err := newHandle.Repository.CreateCommitFromIds(
 			"",
 			commit.Author(),
 			commit.Committer(),
@@ -538,21 +538,21 @@ func SpliceCommit(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create merged override commit")
 		}
-		if commit, err = newRepository.LookupCommit(overrideCommitID); err != nil {
+		if commit, err = newHandle.Repository.LookupCommit(overrideCommitID); err != nil {
 			return nil, errors.Wrap(err, "failed to look up merged override commit")
 		}
 		defer commit.Free()
 
 		// Now that all the objects needed are in the new repository, we can just
 		// do everything in that one.
-		repository = newRepository
+		repository = newHandle.Repository
 	}
 
 	splitCommits, err := SplitCommit(
 		commit,
 		repository,
 		descriptions,
-		newRepository,
+		newHandle.Repository,
 		author,
 		committer,
 		commitMessageTag,
@@ -570,7 +570,7 @@ func SpliceCommit(
 	}
 
 	for i, splitCommit := range splitCommits {
-		newCommit, err := newRepository.LookupCommit(splitCommit.CommitID)
+		newCommit, err := newHandle.Repository.LookupCommit(splitCommit.CommitID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to look up new private commit %s", splitCommit.CommitID)
 		}
@@ -584,7 +584,7 @@ func SpliceCommit(
 			oldTreeID = descriptions[i].ParentCommit.TreeId()
 		}
 
-		newTree, err := newRepository.LookupTree(splitCommit.TreeID)
+		newTree, err := newHandle.Repository.LookupTree(splitCommit.TreeID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to look up new private tree %s", splitCommit.TreeID)
 		}
@@ -612,7 +612,7 @@ func SpliceCommit(
 	}
 
 	mergedTree, err := MergeTrees(
-		newRepository,
+		newHandle.Repository,
 		newTrees...,
 	)
 	if err != nil {
@@ -627,7 +627,7 @@ func SpliceCommit(
 
 	// This cannot use CreateCommit, since the parent commits are not yet in the
 	// repository. We are yet to create a packfile with them.
-	mergedID, err := newRepository.CreateCommitFromIds(
+	mergedID, err := newHandle.Repository.CreateCommitFromIds(
 		"",
 		author,
 		committer,
@@ -658,7 +658,7 @@ func SpliceCommit(
 		},
 	)
 
-	walk, err := newRepository.Walk()
+	walk, err := newHandle.Repository.Walk()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create revwalk")
 	}
@@ -680,7 +680,7 @@ func SpliceCommit(
 	}
 	defer f.Close()
 
-	pb, err := newRepository.NewPackbuilder()
+	pb, err := newHandle.Repository.NewPackbuilder()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create packbuilder")
 	}
@@ -775,9 +775,4 @@ func BuildTree(
 		},
 	)
 	return repository.LookupTree(mergedTreeID)
-}
-
-func openRepository(ctx context.Context, repositoryPath string) (*git.Repository, error) {
-	defer tracing.FromContext(ctx).StartSegment("openRepository").End()
-	return git.OpenRepository(repositoryPath)
 }
