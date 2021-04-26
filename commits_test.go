@@ -12,7 +12,7 @@ import (
 	"time"
 
 	git "github.com/lhchavez/git2go/v32"
-	base "github.com/omegaup/go-base"
+	base "github.com/omegaup/go-base/v2"
 )
 
 func TestSplitTrees(t *testing.T) {
@@ -28,7 +28,7 @@ func TestSplitTrees(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 
 	originalTree, err := BuildTree(
 		repository,
@@ -126,7 +126,7 @@ func TestMergeTrees(t *testing.T) {
 	}
 	defer repo.Free()
 
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 
 	type testEntry struct {
 		trees  []map[string]io.Reader
@@ -243,7 +243,7 @@ func TestSpliceCommit(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 
 	originalTree, err := BuildTree(
 		repository,
