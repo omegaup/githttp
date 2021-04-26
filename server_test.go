@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	git "github.com/lhchavez/git2go/v32"
-	base "github.com/omegaup/go-base"
+	base "github.com/omegaup/go-base/v2"
 )
 
 var (
@@ -47,7 +47,7 @@ func TestServerClone(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	handler := GitServer(
 		"testdata",
 		".git",
@@ -89,7 +89,7 @@ func TestServerCloneShallow(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	handler := GitServer(
 		"testdata",
 		".git",
@@ -142,7 +142,7 @@ func TestServerPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	if os.Getenv("PRESERVE") != "" {
 		log.Info("Preserving test directory", "path", dir)
 	} else {
@@ -235,7 +235,7 @@ func TestGitbomb(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	if os.Getenv("PRESERVE") != "" {
 		log.Info("Preserving test directory", "path", dir)
 	} else {

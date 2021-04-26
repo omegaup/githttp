@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	git "github.com/lhchavez/git2go/v32"
-	base "github.com/omegaup/go-base"
+	base "github.com/omegaup/go-base/v2"
 )
 
 func TestHandleRefs(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -58,7 +58,7 @@ func TestHandleRefs(t *testing.T) {
 }
 
 func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		func(
@@ -98,7 +98,7 @@ func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
 }
 
 func TestHandleRestrictedRefs(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -140,7 +140,7 @@ func TestHandleRestrictedRefs(t *testing.T) {
 }
 
 func TestHandleArchiveCommit(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -182,7 +182,7 @@ func TestHandleArchiveCommit(t *testing.T) {
 }
 
 func TestHandleLog(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -252,7 +252,7 @@ func TestHandleLog(t *testing.T) {
 }
 
 func TestHandleLogCommit(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -306,7 +306,7 @@ func TestHandleLogCommit(t *testing.T) {
 }
 
 func TestHandleShowCommit(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -357,7 +357,7 @@ func TestHandleShowCommit(t *testing.T) {
 }
 
 func TestHandleShowTree(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -412,7 +412,7 @@ func TestHandleShowTree(t *testing.T) {
 }
 
 func TestHandleShowBlob(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		nil,
@@ -459,7 +459,7 @@ func TestHandleShowBlob(t *testing.T) {
 }
 
 func TestHandleNotFound(t *testing.T) {
-	log := base.StderrLog()
+	log := base.StderrLog(false)
 	protocol := NewGitProtocol(
 		nil,
 		func(

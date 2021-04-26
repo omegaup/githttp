@@ -12,7 +12,7 @@ import (
 
 	"github.com/inconshreveable/log15"
 	git "github.com/lhchavez/git2go/v32"
-	base "github.com/omegaup/go-base"
+	base "github.com/omegaup/go-base/v2"
 )
 
 // A GitOperation describes the current operation
