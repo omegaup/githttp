@@ -76,7 +76,8 @@ func TestMultipleReadersLock(t *testing.T) {
 			defer wg.Done()
 			l := NewLockfile(dir)
 			if err := l.RLock(); err != nil {
-				t.Fatalf("Failed to lock git repository for reading: %v", err)
+				t.Errorf("Failed to lock git repository for reading: %v", err)
+				panic(err)
 			}
 			defer l.Unlock()
 		}()
@@ -100,12 +101,14 @@ func TestSingleWriterLock(t *testing.T) {
 			defer wg.Done()
 			l := NewLockfile(dir)
 			if err := l.Lock(); err != nil {
-				t.Fatalf("Failed to lock git repository for reading: %v", err)
+				t.Errorf("Failed to lock git repository for reading: %v", err)
+				panic(err)
 			}
 			// Try to make the other goroutines execute.
 			time.Sleep(time.Millisecond)
 			if new := atomic.AddInt32(&writerCount, 1); new != 1 {
-				t.Fatalf("More than one concurrent writer!")
+				t.Errorf("More than one concurrent writer!")
+				panic("More than one concurrent writer!")
 			}
 			defer atomic.AddInt32(&writerCount, -1)
 			defer l.Unlock()
