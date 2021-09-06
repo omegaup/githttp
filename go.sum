@@ -8,8 +8,8 @@ github.com/inconshreveable/log15 v0.0.0-20200109203555-b30bc20e4fd1 h1:KUDFlmBg2
 github.com/inconshreveable/log15 v0.0.0-20200109203555-b30bc20e4fd1/go.mod h1:cOaXtrgN4ScfRrD9Bre7U1thNq5RtJ8ZoP4iXVGRj6o=
 github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac h1:n1DqxAo4oWPMvH1+v+DLYlMCecgumhhgnxAPdqDIFHI=
 github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac/go.mod h1:cOaXtrgN4ScfRrD9Bre7U1thNq5RtJ8ZoP4iXVGRj6o=
-github.com/lhchavez/git2go/v32 v32.0.0-prerelease.0 h1:WulJqhctwHAenw8sNRWqJ1HVs3i97yjLXQF9Yjm58ME=
-github.com/lhchavez/git2go/v32 v32.0.0-prerelease.0/go.mod h1:0iSqM2vxVO1dfqzpi4eMzlp2mtjiMQ4S1/z89H2IIb8=
+github.com/libgit2/git2go/v32 v32.0.4 h1:qK2yWGh88K2Gh76E1+vUEsjKDfOAq0J2THKaoaFIPbA=
+github.com/libgit2/git2go/v32 v32.0.4/go.mod h1:FAA2ePV5PlLjw1ccncFIvu2v8hJSZVN5IzEn4lo/vwo=
 github.com/mattn/go-colorable v0.1.4 h1:snbPLB8fVfU9iwbbo30TPtbLRzwWu6aJS6Xh4eaaviA=
 github.com/mattn/go-colorable v0.1.4/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.6 h1:6Su7aK7lXmJ/U79bYtBjLNaha4Fs1Rg9plHpcH+vvnE=

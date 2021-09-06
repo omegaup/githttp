@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
-	git "github.com/lhchavez/git2go/v32"
-	base "github.com/omegaup/go-base/v2"
+	git "github.com/libgit2/git2go/v32"
 	"github.com/pkg/errors"
+
+	base "github.com/omegaup/go-base/v2"
 )
 
 const (
