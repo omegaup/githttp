@@ -798,7 +798,5 @@ func handleBrowse(
 		_, err := w.Write(rawBytes)
 		return err
 	}
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(result)
+	return json.NewEncoder(w).Encode(result)
 }
