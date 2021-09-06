@@ -239,7 +239,7 @@ func isCommitIDReachable(
 	}
 	defer it.Free()
 
-	oids := []*git.Oid{commitID}
+	references := make(map[string]*git.Oid)
 	for {
 		ref, err := it.Next()
 		if err != nil {
@@ -253,21 +253,23 @@ func isCommitIDReachable(
 		}
 		defer ref.Free()
 
-		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name()) {
-			continue
-		}
-		if !protocol.ReferenceDiscoveryCallback(ctx, repository, ref.Name()) {
-			continue
-		}
-
-		oids = append(oids, ref.Target())
+		references[ref.Name()] = ref.Target()
 	}
 
-	_, err = repository.MergeBaseMany(oids)
+	var oids []*git.Oid
+	for name, target := range references {
+		if level == AuthorizationAllowedRestricted && isRestrictedRef(name) {
+			continue
+		}
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, name) {
+			continue
+		}
+
+		oids = append(oids, target)
+	}
+
+	reachable, err := repository.ReachableFromAny(commitID, oids)
 	if err != nil {
-		// Even though the commit itself exists, we tell the caller that it
-		// doesn't, since it was not reachable from any of the references that they
-		// can view.
 		return base.ErrorWithCategory(
 			ErrNotFound,
 			errors.Errorf(
@@ -275,6 +277,18 @@ func isCommitIDReachable(
 				commitID.String(),
 				oids,
 				err,
+			),
+		)
+	} else if !reachable {
+		// Even though the commit itself exists, we tell the caller that it
+		// doesn't, since it was not reachable from any of the references that they
+		// can view.
+		return base.ErrorWithCategory(
+			ErrNotFound,
+			errors.Errorf(
+				"commit %s not reachable from any of the viewable references: %v",
+				commitID.String(),
+				oids,
 			),
 		)
 	}
