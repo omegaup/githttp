@@ -34,10 +34,10 @@ jobs:
       - name: Install git2go
         run: |
           export GOPATH="$(go env GOPATH)"
-          go mod edit -replace "github.com/lhchavez/git2go/v32=${GOPATH}/src/github.com/lhchavez/git2go"
-          git clone --recurse-submodules https://github.com/lhchavez/git2go -b v32.0.0-prerelease.0 "${GOPATH}/src/github.com/lhchavez/git2go"
-          go get -d github.com/lhchavez/git2go/v32
-          (cd "${GOPATH}/src/github.com/lhchavez/git2go/" && ./script/build-libgit2-static.sh)
+          go mod edit -replace "github.com/libgit2/git2go/v32=${GOPATH}/src/github.com/libgit2/git2go"
+          git clone --recurse-submodules https://github.com/libgit2/git2go -b v32.0.4 "${GOPATH}/src/github.com/libgit2/git2go"
+          go get -d github.com/libgit2/git2go/v32
+          (cd "${GOPATH}/src/github.com/libgit2/git2go/" && USE_CHROMIUM_ZLIB=ON ./script/build-libgit2-static.sh)
 
       - name: Lint
         run: golint -set_exit_status ./...
