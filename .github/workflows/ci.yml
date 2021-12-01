@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
 
       - name: Set up Go
         uses: actions/setup-go@v2
@@ -34,9 +36,9 @@ jobs:
       - name: Install git2go
         run: |
           export GOPATH="$(go env GOPATH)"
-          go mod edit -replace "github.com/libgit2/git2go/v32=${GOPATH}/src/github.com/libgit2/git2go"
-          git clone --recurse-submodules https://github.com/libgit2/git2go -b v32.0.4 "${GOPATH}/src/github.com/libgit2/git2go"
-          go get -d github.com/libgit2/git2go/v32
+          go mod edit -replace "github.com/libgit2/git2go/v33=${GOPATH}/src/github.com/libgit2/git2go"
+          git clone --recurse-submodules https://github.com/libgit2/git2go -b v33.0.4 "${GOPATH}/src/github.com/libgit2/git2go"
+          go get -d github.com/libgit2/git2go/v33
           (cd "${GOPATH}/src/github.com/libgit2/git2go/" && USE_CHROMIUM_ZLIB=ON ./script/build-libgit2-static.sh)
 
       - name: Lint

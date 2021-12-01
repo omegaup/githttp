@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/inconshreveable/log15"
-	git "github.com/libgit2/git2go/v32"
+	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
 )
 
