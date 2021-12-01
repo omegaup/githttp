@@ -12,9 +12,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/inconshreveable/log15"
-	git "github.com/libgit2/git2go/v32"
 	base "github.com/omegaup/go-base/v2"
+
+	"github.com/inconshreveable/log15"
+	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
 )
 

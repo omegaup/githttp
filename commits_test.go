@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
-	git "github.com/libgit2/git2go/v32"
 	base "github.com/omegaup/go-base/v2"
+
+	git "github.com/libgit2/git2go/v33"
 )
 
 func TestSplitTrees(t *testing.T) {
