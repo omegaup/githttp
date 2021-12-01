@@ -14,6 +14,7 @@ import (
 	"time"
 
 	base "github.com/omegaup/go-base/v2"
+	tracing "github.com/omegaup/go-base/v2/tracing"
 
 	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
@@ -738,6 +739,7 @@ func handleBrowse(
 	requestPath string,
 	w http.ResponseWriter,
 ) error {
+	txn := tracing.FromContext(ctx)
 	repository, err := git.OpenRepository(repositoryPath)
 	if err != nil {
 		return errors.Wrap(
@@ -759,21 +761,25 @@ func handleBrowse(
 
 	var result interface{}
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
+		txn.SetName(method + " /:repo/+refs/")
 		result, err = handleRefs(ctx, repository, level, protocol, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+log/") {
+		txn.SetName(method + " /:repo/+log/")
 		result, err = handleLog(ctx, repository, level, protocol, requestPath, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+archive/") {
+		txn.SetName(method + " /:repo/+archive/")
 		err = handleArchive(ctx, repository, level, protocol, requestPath, method, w)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+/") {
+		txn.SetName(method + " /:repo/+/")
 		result, err = handleShow(ctx, repository, level, protocol, requestPath, method, acceptMIMEType)
 		if err != nil {
 			return err

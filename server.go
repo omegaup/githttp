@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	base "github.com/omegaup/go-base/v2"
+	tracing "github.com/omegaup/go-base/v2/tracing"
 
 	"github.com/inconshreveable/log15"
 	git "github.com/libgit2/git2go/v33"
@@ -242,10 +243,13 @@ type gitHTTPHandler struct {
 	enableBrowse     bool
 	contextCallback  ContextCallback
 	protocol         *GitProtocol
+	tracing          tracing.Provider
 	log              log15.Logger
 }
 
 func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	txn := tracing.FromContext(r.Context())
+	txn.SetName(r.Method + " /:repo")
 	splitPath := strings.SplitN(r.URL.Path[1:], "/", 2)
 	if len(splitPath) < 2 {
 		h.log.Error(
@@ -258,6 +262,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	repositoryName := splitPath[0]
+	txn.AddAttributes(tracing.Arg{Name: "repository", Value: repositoryName})
 	if strings.HasPrefix(repositoryName, ".") {
 		h.log.Error(
 			"Request",
@@ -292,6 +297,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serviceName := relativeURL.Query().Get("service")
 	if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-upload-pack" {
+		txn.SetName(r.Method + " /:repo/info/refs?service=git-upload-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			h.log.Error(
@@ -318,6 +324,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-upload-pack" {
+		txn.SetName(r.Method + " /:repo/git-upload-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
 			h.log.Error(
@@ -345,6 +352,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Method == "GET" && relativeURL.Path == "/info/refs" &&
 		serviceName == "git-receive-pack" {
+		txn.SetName(r.Method + " /:repo/info/refs?service=git-receive-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			h.log.Error(
@@ -382,6 +390,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" && relativeURL.Path == "/git-receive-pack" {
+		txn.SetName(r.Method + " /:repo/git-receive-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
 			h.log.Error(
@@ -505,6 +514,7 @@ type GitServerOpts struct {
 	Protocol         *GitProtocol
 	ContextCallback  ContextCallback
 	Log              log15.Logger
+	Tracing          tracing.Provider
 }
 
 // NewGitServer returns an http.Handler that implements git's smart protocol,
@@ -513,6 +523,9 @@ type GitServerOpts struct {
 // The callbacks will be invoked as a way to allow callers to perform
 // additional authorization and pre-upload checks.
 func NewGitServer(opts GitServerOpts) http.Handler {
+	if opts.Tracing == nil {
+		opts.Tracing = tracing.NewNoOpProvider()
+	}
 	if opts.ContextCallback == nil {
 		opts.ContextCallback = noopContextCallback
 	}
@@ -527,5 +540,6 @@ func NewGitServer(opts GitServerOpts) http.Handler {
 		contextCallback:  opts.ContextCallback,
 		protocol:         opts.Protocol,
 		log:              opts.Log,
+		tracing:          opts.Tracing,
 	}
 }
