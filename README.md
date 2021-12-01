@@ -12,15 +12,18 @@ the `git_repositories/` directory:
 package main
 
 import (
-        "github.com/inconshreveable/log15"
-        "github.com/omegaup/githttp"
-        "net/http"
+	"net/http"
+
+	"github.com/omegaup/githttp"
 )
 
 func main() {
-        panic(http.Server{
-                Addr:    ":80",
-                Handler: githttp.GitServer("git_repositories", true, nil, nil, nil, log15.New()),
-        }.ListenAndServe())
+	panic(http.Server{
+		Addr:    ":80",
+		Handler: githttp.NewGitServer(githttp.GitServerOpts{
+			RootPath:     "git_repositories",
+			EnableBrowse: true,
+		}),
+	}.ListenAndServe())
 }
 ```

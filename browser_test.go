@@ -15,14 +15,9 @@ import (
 
 func TestHandleRefs(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -60,20 +55,16 @@ func TestHandleRefs(t *testing.T) {
 
 func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		func(
+	protocol := NewGitProtocol(GitProtocolOpts{
+		ReferenceDiscoveryCallback: func(
 			ctx context.Context,
 			repository *git.Repository,
 			referenceName string,
 		) bool {
 			return referenceName == "refs/heads/public"
 		},
-		nil,
-		nil,
-		false,
-		log,
-	)
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -100,14 +91,9 @@ func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
 
 func TestHandleRestrictedRefs(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -142,14 +128,9 @@ func TestHandleRestrictedRefs(t *testing.T) {
 
 func TestHandleArchiveCommit(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -184,14 +165,9 @@ func TestHandleArchiveCommit(t *testing.T) {
 
 func TestHandleLog(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -254,14 +230,9 @@ func TestHandleLog(t *testing.T) {
 
 func TestHandleLogCommit(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -308,14 +279,9 @@ func TestHandleLogCommit(t *testing.T) {
 
 func TestHandleShowCommit(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -359,14 +325,9 @@ func TestHandleShowCommit(t *testing.T) {
 
 func TestHandleShowTree(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -414,14 +375,9 @@ func TestHandleShowTree(t *testing.T) {
 
 func TestHandleShowBlob(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
-		false,
-		log,
-	)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {
@@ -461,20 +417,16 @@ func TestHandleShowBlob(t *testing.T) {
 
 func TestHandleNotFound(t *testing.T) {
 	log := base.StderrLog(false)
-	protocol := NewGitProtocol(
-		nil,
-		func(
+	protocol := NewGitProtocol(GitProtocolOpts{
+		ReferenceDiscoveryCallback: func(
 			ctx context.Context,
 			repository *git.Repository,
 			referenceName string,
 		) bool {
 			return referenceName == "refs/heads/public"
 		},
-		nil,
-		nil,
-		false,
-		log,
-	)
+		Log: log,
+	})
 
 	repository, err := git.OpenRepository("testdata/repo.git")
 	if err != nil {

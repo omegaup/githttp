@@ -64,14 +64,9 @@ func TestHandlePrePullRestricted(t *testing.T) {
 		context.Background(),
 		"testdata/repo.git",
 		AuthorizationAllowedRestricted,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -102,14 +97,9 @@ func TestHandlePrePull(t *testing.T) {
 		context.Background(),
 		"testdata/repo.git",
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -141,14 +131,9 @@ func TestHandlePrePush(t *testing.T) {
 		context.Background(),
 		"testdata/repo.git",
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -179,14 +164,9 @@ func TestHandleEmptyPrePull(t *testing.T) {
 		context.Background(),
 		"testdata/empty.git",
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -214,14 +194,9 @@ func TestHandleEmptyPrePush(t *testing.T) {
 		context.Background(),
 		"testdata/empty.git",
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -621,14 +596,9 @@ func TestHandlePushUnborn(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -654,14 +624,9 @@ func TestHandlePushUnborn(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -724,11 +689,8 @@ func TestHandlePushPreprocess(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			func(
+		NewGitProtocol(GitProtocolOpts{
+			PreprocessCallback: func(
 				ctx context.Context,
 				originalRepository *git.Repository,
 				tmpDir string,
@@ -791,9 +753,8 @@ func TestHandlePushPreprocess(t *testing.T) {
 
 				return newPackPath, newCommands, nil
 			},
-			false,
-			log,
-		),
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -819,14 +780,9 @@ func TestHandlePushPreprocess(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&buf,
 	)
@@ -889,10 +845,8 @@ func TestHandlePushCallback(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			func(
+		NewGitProtocol(GitProtocolOpts{
+			UpdateCallback: func(
 				ctx context.Context,
 				repository *git.Repository,
 				level AuthorizationLevel,
@@ -901,10 +855,8 @@ func TestHandlePushCallback(t *testing.T) {
 			) error {
 				return errors.New("go away")
 			},
-			nil,
-			false,
-			log,
-		),
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -963,14 +915,9 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowed,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1029,14 +976,9 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1095,14 +1037,9 @@ func TestHandlePushMerge(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1161,14 +1098,9 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1227,14 +1159,9 @@ func TestHandleNonFastForward(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,
@@ -1276,14 +1203,9 @@ func TestHandleNonFastForward(t *testing.T) {
 		context.Background(),
 		dir,
 		AuthorizationAllowedRestricted,
-		NewGitProtocol(
-			nil,
-			nil,
-			nil,
-			nil,
-			false,
-			log,
-		),
+		NewGitProtocol(GitProtocolOpts{
+			Log: log,
+		}),
 		log,
 		&inBuf,
 		&outBuf,

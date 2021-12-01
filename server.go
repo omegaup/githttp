@@ -16,6 +16,8 @@ import (
 	git "github.com/libgit2/git2go/v33"
 )
 
+type doNotCompare [0]func()
+
 // A GitOperation describes the current operation
 type GitOperation int
 
@@ -493,29 +495,37 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// GitServer returns an http.Handler that implements git's smart protocol,
+// GitServerOpts contains all the possible options to initialize the git Server.
+type GitServerOpts struct {
+	doNotCompare
+
+	RootPath         string
+	RepositorySuffix string
+	EnableBrowse     bool
+	Protocol         *GitProtocol
+	ContextCallback  ContextCallback
+	Log              log15.Logger
+}
+
+// NewGitServer returns an http.Handler that implements git's smart protocol,
 // as documented on
 // https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_the_smart_protocol .
 // The callbacks will be invoked as a way to allow callers to perform
 // additional authorization and pre-upload checks.
-func GitServer(
-	rootPath string,
-	repositorySuffix string,
-	enableBrowse bool,
-	protocol *GitProtocol,
-	contextCallback ContextCallback,
-	log log15.Logger,
-) http.Handler {
-	if contextCallback == nil {
-		contextCallback = noopContextCallback
+func NewGitServer(opts GitServerOpts) http.Handler {
+	if opts.ContextCallback == nil {
+		opts.ContextCallback = noopContextCallback
+	}
+	if opts.Log == nil {
+		opts.Log = log15.New()
 	}
 
 	return &gitHTTPHandler{
-		rootPath:         rootPath,
-		repositorySuffix: repositorySuffix,
-		enableBrowse:     enableBrowse,
-		contextCallback:  contextCallback,
-		protocol:         protocol,
-		log:              log,
+		rootPath:         opts.RootPath,
+		repositorySuffix: opts.RepositorySuffix,
+		enableBrowse:     opts.EnableBrowse,
+		contextCallback:  opts.ContextCallback,
+		protocol:         opts.Protocol,
+		log:              opts.Log,
 	}
 }
