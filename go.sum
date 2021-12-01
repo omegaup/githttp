@@ -19,6 +19,8 @@ github.com/omegaup/go-base/v2 v2.1.0 h1:pehTzNMArOQrVBOa2oLhZDIhWSU80phIHrBi+gL4
 github.com/omegaup/go-base/v2 v2.1.0/go.mod h1:DotC1e60GE6S+iqe9RyusanekwK/eyU/YL3so86X3SA=
 github.com/omegaup/go-base/v2 v2.2.0 h1:bb4PrDOlJ+v17QHblBN3QGNTWoRhtgOW+k7x9q2L9Ik=
 github.com/omegaup/go-base/v2 v2.2.0/go.mod h1:DotC1e60GE6S+iqe9RyusanekwK/eyU/YL3so86X3SA=
+github.com/omegaup/go-base/v2 v2.3.0 h1:u5juOm0O96ZeuJu3xYSwvyGtstIkCEDT/F016gzSfow=
+github.com/omegaup/go-base/v2 v2.3.0/go.mod h1:DotC1e60GE6S+iqe9RyusanekwK/eyU/YL3so86X3SA=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
