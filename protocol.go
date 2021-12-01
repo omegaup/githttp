@@ -125,38 +125,43 @@ type GitProtocol struct {
 	log                        log15.Logger
 }
 
+// GitProtocolOpts contains all the possible options to initialize the git Server.
+type GitProtocolOpts struct {
+	doNotCompare
+
+	AuthCallback               AuthorizationCallback
+	ReferenceDiscoveryCallback ReferenceDiscoveryCallback
+	UpdateCallback             UpdateCallback
+	PreprocessCallback         PreprocessCallback
+	AllowNonFastForward        bool
+	Log                        log15.Logger
+}
+
 // NewGitProtocol returns a new instance of GitProtocol.
-func NewGitProtocol(
-	authCallback AuthorizationCallback,
-	referenceDiscoveryCallback ReferenceDiscoveryCallback,
-	updateCallback UpdateCallback,
-	preprocessCallback PreprocessCallback,
-	allowNonFastForward bool,
-	log log15.Logger,
-) *GitProtocol {
-	if authCallback == nil {
-		authCallback = noopAuthorizationCallback
+func NewGitProtocol(opts GitProtocolOpts) *GitProtocol {
+	if opts.AuthCallback == nil {
+		opts.AuthCallback = noopAuthorizationCallback
 	}
-
-	if referenceDiscoveryCallback == nil {
-		referenceDiscoveryCallback = noopReferenceDiscoveryCallback
+	if opts.ReferenceDiscoveryCallback == nil {
+		opts.ReferenceDiscoveryCallback = noopReferenceDiscoveryCallback
 	}
-
-	if updateCallback == nil {
-		updateCallback = noopUpdateCallback
+	if opts.UpdateCallback == nil {
+		opts.UpdateCallback = noopUpdateCallback
 	}
-
-	if preprocessCallback == nil {
-		preprocessCallback = noopPreprocessCallback
+	if opts.PreprocessCallback == nil {
+		opts.PreprocessCallback = noopPreprocessCallback
+	}
+	if opts.Log == nil {
+		opts.Log = log15.New()
 	}
 
 	return &GitProtocol{
-		AuthCallback:               authCallback,
-		ReferenceDiscoveryCallback: referenceDiscoveryCallback,
-		UpdateCallback:             updateCallback,
-		PreprocessCallback:         preprocessCallback,
-		AllowNonFastForward:        allowNonFastForward,
-		log:                        log,
+		AuthCallback:               opts.AuthCallback,
+		ReferenceDiscoveryCallback: opts.ReferenceDiscoveryCallback,
+		UpdateCallback:             opts.UpdateCallback,
+		PreprocessCallback:         opts.PreprocessCallback,
+		AllowNonFastForward:        opts.AllowNonFastForward,
+		log:                        opts.Log,
 	}
 }
 

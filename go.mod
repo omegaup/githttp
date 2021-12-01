@@ -1,4 +1,4 @@
-module github.com/omegaup/githttp
+module github.com/omegaup/githttp/v2
 
 go 1.17
 

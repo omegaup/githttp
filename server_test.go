@@ -49,14 +49,16 @@ func TestServerClone(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	log := base.StderrLog(false)
-	handler := GitServer(
-		"testdata",
-		".git",
-		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
-		nil,
-		log,
-	)
+	handler := NewGitServer(GitServerOpts{
+		RootPath:         "testdata",
+		RepositorySuffix: ".git",
+		EnableBrowse:     true,
+		Protocol: NewGitProtocol(GitProtocolOpts{
+			AuthCallback: allowAuthorizationCallback,
+			Log:          log,
+		}),
+		Log: log,
+	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -91,14 +93,16 @@ func TestServerCloneShallow(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	log := base.StderrLog(false)
-	handler := GitServer(
-		"testdata",
-		".git",
-		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
-		nil,
-		log,
-	)
+	handler := NewGitServer(GitServerOpts{
+		RootPath:         "testdata",
+		RepositorySuffix: ".git",
+		EnableBrowse:     true,
+		Protocol: NewGitProtocol(GitProtocolOpts{
+			AuthCallback: allowAuthorizationCallback,
+			Log:          log,
+		}),
+		Log: log,
+	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -158,14 +162,16 @@ func TestServerPush(t *testing.T) {
 		repo.Free()
 	}
 
-	handler := GitServer(
-		dir,
-		".git",
-		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
-		nil,
-		log,
-	)
+	handler := NewGitServer(GitServerOpts{
+		RootPath:         dir,
+		RepositorySuffix: ".git",
+		EnableBrowse:     true,
+		Protocol: NewGitProtocol(GitProtocolOpts{
+			AuthCallback: allowAuthorizationCallback,
+			Log:          log,
+		}),
+		Log: log,
+	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
@@ -251,14 +257,16 @@ func TestGitbomb(t *testing.T) {
 		repo.Free()
 	}
 
-	handler := GitServer(
-		dir,
-		".git",
-		true,
-		NewGitProtocol(allowAuthorizationCallback, nil, nil, nil, false, log),
-		nil,
-		log,
-	)
+	handler := NewGitServer(GitServerOpts{
+		RootPath:         dir,
+		RepositorySuffix: ".git",
+		EnableBrowse:     true,
+		Protocol: NewGitProtocol(GitProtocolOpts{
+			AuthCallback: allowAuthorizationCallback,
+			Log:          log,
+		}),
+		Log: log,
+	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
 
