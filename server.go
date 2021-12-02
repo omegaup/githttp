@@ -339,7 +339,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePull(repositoryPath, level, h.log, r.Body, w); err != nil {
+		if err := handlePull(ctx, repositoryPath, level, h.log, r.Body, w); err != nil {
 			h.log.Error(
 				"Request",
 				"Method", r.Method,

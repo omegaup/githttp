@@ -1,6 +1,7 @@
 package githttp
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/omegaup/go-base/v2/tracing"
 
 	"github.com/inconshreveable/log15"
 	git "github.com/libgit2/git2go/v33"
@@ -443,7 +446,7 @@ func SpliceCommit(
 	newPackPath string,
 	log log15.Logger,
 ) ([]*GitCommand, error) {
-	newRepository, err := git.OpenRepository(repository.Path())
+	newRepository, err := openRepository(context.TODO(), repository.Path())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open git repository at %s", repository.Path())
 	}
@@ -740,4 +743,9 @@ func BuildTree(
 	}
 	log.Debug("Creating tree", "id", mergedTreeID)
 	return repository.LookupTree(mergedTreeID)
+}
+
+func openRepository(ctx context.Context, repositoryPath string) (*git.Repository, error) {
+	defer tracing.FromContext(ctx).StartSegment("openRepository").End()
+	return git.OpenRepository(repositoryPath)
 }

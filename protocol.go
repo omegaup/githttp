@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	base "github.com/omegaup/go-base/v2"
+	tracing "github.com/omegaup/go-base/v2/tracing"
 
 	"github.com/inconshreveable/log15"
 	git "github.com/libgit2/git2go/v33"
@@ -175,6 +176,8 @@ func (p *GitProtocol) PushPackfile(
 	commands []*GitCommand,
 	r io.Reader,
 ) (updatedRefs []UpdatedRef, err, unpackErr error) {
+	txn := tracing.FromContext(ctx)
+	defer txn.StartSegment("PushPackfile").End()
 	odb, err := repository.Odb()
 	if err != nil {
 		err = errors.Wrap(err, "failed to open git odb")
@@ -257,14 +260,19 @@ func (p *GitProtocol) PushPackfile(
 		return nil, base.ErrorWithCategory(ErrBadRequest, err), nil
 	}
 
+	acquireLockSegment := txn.StartSegment("acquire lock")
 	if ok, err := lockfile.TryLock(); !ok {
 		p.log.Info("Waiting for the lockfile", "err", err)
-		if err := lockfile.Lock(); err != nil {
+		err = lockfile.Lock()
+		acquireLockSegment.End()
+		if err != nil {
 			return nil, errors.Wrap(
 				err,
 				"failed to acquire the lockfile",
 			), nil
 		}
+	} else {
+		acquireLockSegment.End()
 	}
 
 	err = commitPackfile(packPath, writepack)
@@ -461,7 +469,7 @@ func handleInfoRefs(
 	log log15.Logger,
 	w io.Writer,
 ) error {
-	repository, err := git.OpenRepository(repositoryPath)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,
@@ -592,13 +600,14 @@ func handlePrePull(
 // be sent and replies to the client with a packfile with all the objects
 // contained in the requested commits.
 func handlePull(
+	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
 	log log15.Logger,
 	r io.Reader,
 	w io.Writer,
 ) error {
-	repository, err := git.OpenRepository(repositoryPath)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,
@@ -877,7 +886,7 @@ func handlePush(
 	r io.Reader,
 	w io.Writer,
 ) error {
-	repository, err := git.OpenRepository(repositoryPath)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,

@@ -740,7 +740,7 @@ func handleBrowse(
 	w http.ResponseWriter,
 ) error {
 	txn := tracing.FromContext(ctx)
-	repository, err := git.OpenRepository(repositoryPath)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,
