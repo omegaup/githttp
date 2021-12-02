@@ -237,7 +237,14 @@ func TestHandlePullUnknownRef(t *testing.T) {
 	}
 
 	log := base.StderrLog(false)
-	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
+	err = handlePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
 	}
@@ -271,7 +278,14 @@ func TestHandleClone(t *testing.T) {
 	}
 
 	log := base.StderrLog(false)
-	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
+	err = handlePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
 	}
@@ -340,7 +354,14 @@ func TestHandlePull(t *testing.T) {
 	}
 
 	log := base.StderrLog(false)
-	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
+	err = handlePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
 	}
@@ -404,7 +425,14 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 	}
 
 	log := base.StderrLog(false)
-	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
+	err = handlePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
 	}
@@ -439,7 +467,14 @@ func TestHandleCloneShallowClone(t *testing.T) {
 	}
 
 	log := base.StderrLog(false)
-	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
+	err = handlePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
 	}
@@ -509,7 +544,14 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 	}
 
 	log := base.StderrLog(false)
-	err = handlePull("testdata/repo.git", AuthorizationAllowed, log, &inBuf, &outBuf)
+	err = handlePull(
+		context.Background(),
+		"testdata/repo.git",
+		AuthorizationAllowed,
+		log,
+		&inBuf,
+		&outBuf,
+	)
 	if err != nil {
 		t.Fatalf("Failed to clone: %v", err)
 	}
