@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	base "github.com/omegaup/go-base/v2"
+	"github.com/omegaup/go-base/logging/log15"
 
 	git "github.com/libgit2/git2go/v33"
 )
@@ -48,7 +48,7 @@ func TestServerClone(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	handler := NewGitServer(GitServerOpts{
 		RootPath:         "testdata",
 		RepositorySuffix: ".git",
@@ -92,7 +92,7 @@ func TestServerCloneShallow(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	handler := NewGitServer(GitServerOpts{
 		RootPath:         "testdata",
 		RepositorySuffix: ".git",
@@ -147,9 +147,14 @@ func TestServerPush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	if os.Getenv("PRESERVE") != "" {
-		log.Info("Preserving test directory", "path", dir)
+		log.Info(
+			"Preserving test directory",
+			map[string]interface{}{
+				"path": dir,
+			},
+		)
 	} else {
 		defer os.RemoveAll(dir)
 	}
@@ -242,9 +247,14 @@ func TestGitbomb(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	if os.Getenv("PRESERVE") != "" {
-		log.Info("Preserving test directory", "path", dir)
+		log.Info(
+			"Preserving test directory",
+			map[string]interface{}{
+				"path": dir,
+			},
+		)
 	} else {
 		defer os.RemoveAll(dir)
 	}

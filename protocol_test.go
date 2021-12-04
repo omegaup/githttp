@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	base "github.com/omegaup/go-base/v2"
+	"github.com/omegaup/go-base/logging/log15"
 
 	git "github.com/libgit2/git2go/v33"
 )
@@ -59,7 +59,7 @@ func TestDiscoverReferences(t *testing.T) {
 
 func TestHandlePrePullRestricted(t *testing.T) {
 	var buf bytes.Buffer
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err := handlePrePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -92,7 +92,7 @@ func TestHandlePrePullRestricted(t *testing.T) {
 
 func TestHandlePrePull(t *testing.T) {
 	var buf bytes.Buffer
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err := handlePrePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -126,7 +126,7 @@ func TestHandlePrePull(t *testing.T) {
 
 func TestHandlePrePush(t *testing.T) {
 	var buf bytes.Buffer
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err := handlePrePush(
 		context.Background(),
 		"testdata/repo.git",
@@ -159,7 +159,7 @@ func TestHandlePrePush(t *testing.T) {
 
 func TestHandleEmptyPrePull(t *testing.T) {
 	var buf bytes.Buffer
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err := handlePrePull(
 		context.Background(),
 		"testdata/empty.git",
@@ -189,7 +189,7 @@ func TestHandleEmptyPrePull(t *testing.T) {
 
 func TestHandleEmptyPrePush(t *testing.T) {
 	var buf bytes.Buffer
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err := handlePrePush(
 		context.Background(),
 		"testdata/empty.git",
@@ -236,7 +236,7 @@ func TestHandlePullUnknownRef(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -277,7 +277,7 @@ func TestHandleClone(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -353,7 +353,7 @@ func TestHandlePull(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -424,7 +424,7 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 		pw.Flush()
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -466,7 +466,7 @@ func TestHandleCloneShallowClone(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -543,7 +543,7 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 		pw.WritePktLine([]byte("done"))
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
 		"testdata/repo.git",
@@ -633,7 +633,7 @@ func TestHandlePushUnborn(t *testing.T) {
 		t.Fatalf("Failed to copy the packfile: %v", err)
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -726,7 +726,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -745,7 +745,12 @@ func TestHandlePushPreprocess(t *testing.T) {
 
 				originalCommit, err := originalRepository.LookupCommit(originalCommands[0].New)
 				if err != nil {
-					log.Error("Error looking up commit", "err", err)
+					log.Error(
+						"Error looking up commit",
+						map[string]interface{}{
+							"err": err,
+						},
+					)
 					return originalPackPath, originalCommands, err
 				}
 				defer originalCommit.Free()
@@ -787,11 +792,22 @@ func TestHandlePushPreprocess(t *testing.T) {
 					log,
 				)
 				if err != nil {
-					log.Error("Error splicing commit", "err", err)
+					log.Error(
+						"Error splicing commit",
+						map[string]interface{}{
+							"err": err,
+						},
+					)
 					return originalPackPath, originalCommands, err
 				}
 
-				log.Debug("Commands changed", "old commands", originalCommands, "newCommands", newCommands)
+				log.Debug(
+					"Commands changed",
+					map[string]interface{}{
+						"old commands": originalCommands,
+						"newCommands":  newCommands,
+					},
+				)
 
 				return newPackPath, newCommands, nil
 			},
@@ -882,7 +898,7 @@ func TestHandlePushCallback(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -952,7 +968,7 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1013,7 +1029,7 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1074,7 +1090,7 @@ func TestHandlePushMerge(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1135,7 +1151,7 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,
@@ -1196,7 +1212,7 @@ func TestHandleNonFastForward(t *testing.T) {
 		}
 	}
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
 		dir,

@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/omegaup/go-base/v2/tracing"
+	"github.com/omegaup/go-base/v3/logging"
+	"github.com/omegaup/go-base/v3/tracing"
 
-	"github.com/inconshreveable/log15"
 	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
 )
@@ -198,7 +198,7 @@ func SplitTree(
 	originalRepository *git.Repository,
 	paths []string,
 	repository *git.Repository,
-	log log15.Logger,
+	log logging.Logger,
 ) (*git.Tree, error) {
 	treebuilder, err := repository.TreeBuilder()
 	if err != nil {
@@ -262,7 +262,14 @@ func SplitTree(
 			}
 			defer tree.Free()
 
-			log.Debug("Creating subtree", "name", name, "contents", subpaths, "id", tree.Id().String())
+			log.Debug(
+				"Creating subtree",
+				map[string]interface{}{
+					"name":     name,
+					"contents": subpaths,
+					"id":       tree.Id().String(),
+				},
+			)
 			if err = treebuilder.Insert(name, tree.Id(), originalEntry.Filemode); err != nil {
 				return errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
@@ -315,7 +322,7 @@ func SplitCommit(
 	repository *git.Repository,
 	author, committer *git.Signature,
 	commitMessageTag string,
-	log log15.Logger,
+	log logging.Logger,
 ) ([]SplitCommitResult, error) {
 	originalTree, err := originalCommit.Tree()
 	if err != nil {
@@ -335,10 +342,23 @@ func SplitCommit(
 			return ErrObjectLimitExceeded
 		}
 		path := path.Join(parent, entry.Name)
-		log.Debug("Considering", "path", path, "entry", *entry)
+		log.Debug(
+			"Considering",
+			map[string]interface{}{
+				"path":  path,
+				"entry": *entry,
+			},
+		)
 		for i, description := range descriptions {
 			if description.ContainsPath(path) {
-				log.Debug("Found a match for a path", "path", path, "entry", *entry, "description", description)
+				log.Debug(
+					"Found a match for a path",
+					map[string]interface{}{
+						"path":        path,
+						"entry":       *entry,
+						"description": description,
+					},
+				)
 				treePaths[i] = append(treePaths[i], path)
 				break
 			}
@@ -444,7 +464,7 @@ func SpliceCommit(
 	reference *git.Reference,
 	commitMessageTag string,
 	newPackPath string,
-	log log15.Logger,
+	log logging.Logger,
 ) ([]*GitCommand, error) {
 	newRepository, err := openRepository(context.TODO(), repository.Path())
 	if err != nil {
@@ -682,7 +702,7 @@ func SpliceCommit(
 func BuildTree(
 	repository *git.Repository,
 	files map[string]io.Reader,
-	log log15.Logger,
+	log logging.Logger,
 ) (*git.Tree, error) {
 	treebuilder, err := repository.TreeBuilder()
 	if err != nil {
@@ -703,7 +723,14 @@ func BuildTree(
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to create blob for %s", name)
 			}
-			log.Debug("Creating blob", "path", name, "len", len(contents), "id", oid)
+			log.Debug(
+				"Creating blob",
+				map[string]interface{}{
+					"path": name,
+					"len":  len(contents),
+					"id":   oid,
+				},
+			)
 			if err = treebuilder.Insert(name, oid, 0100644); err != nil {
 				return nil, errors.Wrapf(err, "failed to insert %s into treebuilder", name)
 			}
@@ -741,7 +768,12 @@ func BuildTree(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create tree")
 	}
-	log.Debug("Creating tree", "id", mergedTreeID)
+	log.Debug(
+		"Creating tree",
+		map[string]interface{}{
+			"id": mergedTreeID,
+		},
+	)
 	return repository.LookupTree(mergedTreeID)
 }
 

@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"strings"
 
-	base "github.com/omegaup/go-base/v2"
-	tracing "github.com/omegaup/go-base/v2/tracing"
+	base "github.com/omegaup/go-base/v3"
+	"github.com/omegaup/go-base/v3/logging"
+	"github.com/omegaup/go-base/v3/tracing"
 
-	"github.com/inconshreveable/log15"
 	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
 )
@@ -123,7 +123,7 @@ type GitProtocol struct {
 	UpdateCallback             UpdateCallback
 	PreprocessCallback         PreprocessCallback
 	AllowNonFastForward        bool
-	log                        log15.Logger
+	log                        logging.Logger
 }
 
 // GitProtocolOpts contains all the possible options to initialize the git Server.
@@ -135,7 +135,7 @@ type GitProtocolOpts struct {
 	UpdateCallback             UpdateCallback
 	PreprocessCallback         PreprocessCallback
 	AllowNonFastForward        bool
-	Log                        log15.Logger
+	Log                        logging.Logger
 }
 
 // NewGitProtocol returns a new instance of GitProtocol.
@@ -151,9 +151,6 @@ func NewGitProtocol(opts GitProtocolOpts) *GitProtocol {
 	}
 	if opts.PreprocessCallback == nil {
 		opts.PreprocessCallback = noopPreprocessCallback
-	}
-	if opts.Log == nil {
-		opts.Log = log15.New()
 	}
 
 	return &GitProtocol{
@@ -219,10 +216,20 @@ func (p *GitProtocol) PushPackfile(
 				if !ValidateFastForward(repository, commit, command.Reference) && !p.AllowNonFastForward {
 					command.err = ErrNonFastForward
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
-					p.log.Info("restricted ref", "ref", command.ReferenceName)
+					p.log.Info(
+						"restricted ref",
+						map[string]interface{}{
+							"ref": command.ReferenceName,
+						},
+					)
 					command.err = ErrRestrictedRef
 				} else if !p.ReferenceDiscoveryCallback(ctx, repository, command.ReferenceName) {
-					p.log.Info("user does not have access", "ref", command.ReferenceName)
+					p.log.Info(
+						"user does not have access",
+						map[string]interface{}{
+							"ref": command.ReferenceName,
+						},
+					)
 					command.err = ErrRestrictedRef
 				} else {
 					parentCommit := commit.Parent(0)
@@ -262,7 +269,12 @@ func (p *GitProtocol) PushPackfile(
 
 	acquireLockSegment := txn.StartSegment("acquire lock")
 	if ok, err := lockfile.TryLock(); !ok {
-		p.log.Info("Waiting for the lockfile", "err", err)
+		p.log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
 		err = lockfile.Lock()
 		acquireLockSegment.End()
 		if err != nil {
@@ -321,7 +333,12 @@ func (p *GitProtocol) PushPackfile(
 		}
 		updatedRefs = append(updatedRefs, updatedRef)
 		ref.Free()
-		p.log.Info("Ref successfully updated", "command", command)
+		p.log.Info(
+			"Ref successfully updated",
+			map[string]interface{}{
+				"command": command,
+			},
+		)
 	}
 
 	return updatedRefs, nil, nil
@@ -466,7 +483,7 @@ func handleInfoRefs(
 	sendCapabilities bool,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
-	log log15.Logger,
+	log logging.Logger,
 	w io.Writer,
 ) error {
 	repository, err := openRepository(ctx, repositoryPath)
@@ -480,7 +497,12 @@ func handleInfoRefs(
 
 	lockfile := NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
-		log.Info("Waiting for the lockfile", "err", err)
+		log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
 		if err := lockfile.RLock(); err != nil {
 			return errors.Wrap(
 				err,
@@ -533,7 +555,12 @@ func handleInfoRefs(
 		ref, err := it.Next()
 		if err != nil {
 			if !git.IsErrorCode(err, git.ErrorCodeIterOver) {
-				log.Error("Error getting reference", "err", err)
+				log.Error(
+					"Error getting reference",
+					map[string]interface{}{
+						"err": err,
+					},
+				)
 			}
 			break
 		}
@@ -578,7 +605,7 @@ func handlePrePull(
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
-	log log15.Logger,
+	log logging.Logger,
 	w io.Writer,
 ) error {
 	return handleInfoRefs(
@@ -603,7 +630,7 @@ func handlePull(
 	ctx context.Context,
 	repositoryPath string,
 	level AuthorizationLevel,
-	log log15.Logger,
+	log logging.Logger,
 	r io.Reader,
 	w io.Writer,
 ) error {
@@ -618,7 +645,12 @@ func handlePull(
 
 	lockfile := NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
-		log.Info("Waiting for the lockfile", "err", err)
+		log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
 		if err := lockfile.RLock(); err != nil {
 			return errors.Wrap(
 				err,
@@ -658,7 +690,12 @@ func handlePull(
 				),
 			)
 		}
-		log.Debug("pktline", "data", strings.Trim(string(line), "\n"))
+		log.Debug(
+			"pktline",
+			map[string]interface{}{
+				"data": strings.Trim(string(line), "\n"),
+			},
+		)
 		tokens := strings.FieldsFunc(
 			strings.Trim(string(line), "\n"),
 			func(r rune) bool {
@@ -680,7 +717,12 @@ func handlePull(
 					)
 				}
 			}
-			log.Debug("client capabilities", "list", tokens[2:])
+			log.Debug(
+				"client capabilities",
+				map[string]interface{}{
+					"list": tokens[2:],
+				},
+			)
 		}
 		if tokens[0] == "want" {
 			if len(tokens) < 2 {
@@ -698,7 +740,12 @@ func handlePull(
 			}
 			commit, err := repository.LookupCommit(oid)
 			if err != nil {
-				log.Debug("Unknown commit requested", "oid", tokens[1])
+				log.Debug(
+					"Unknown commit requested",
+					map[string]interface{}{
+						"oid": tokens[1],
+					},
+				)
 				pw := NewPktLineWriter(w)
 				pw.WritePktLine([]byte(fmt.Sprintf("ERR upload-pack: not our ref %s", oid.String())))
 				return nil
@@ -728,7 +775,12 @@ func handlePull(
 				)
 			}
 		} else {
-			log.Debug("unknown command", "command", tokens[0])
+			log.Debug(
+				"unknown command",
+				map[string]interface{}{
+					"command": tokens[0],
+				},
+			)
 		}
 	}
 
@@ -769,7 +821,12 @@ func handlePull(
 				),
 			)
 		}
-		log.Debug("pktline", "data", strings.Trim(string(line), "\n"))
+		log.Debug(
+			"pktline",
+			map[string]interface{}{
+				"data": strings.Trim(string(line), "\n"),
+			},
+		)
 		tokens := strings.FieldsFunc(
 			strings.Trim(string(line), "\n"),
 			func(r rune) bool {
@@ -807,10 +864,17 @@ func handlePull(
 		}
 	}
 
-	log.Debug("Negotiation", "want", wantMap, "have", haveSet, "common", commonSet)
+	log.Debug(
+		"Negotiation",
+		map[string]interface{}{
+			"want":   wantMap,
+			"have":   haveSet,
+			"common": commonSet,
+		},
+	)
 
 	if !done {
-		log.Debug("missing 'done' pkt-line")
+		log.Debug("missing 'done' pkt-line", nil)
 		return nil
 	}
 
@@ -822,13 +886,23 @@ func handlePull(
 			}
 			depth--
 			if _, ok := shallowSet[current.Id().String()]; ok {
-				log.Debug("Skipping commit", "commit", current.Id().String())
+				log.Debug(
+					"Skipping commit",
+					map[string]interface{}{
+						"commit": current.Id().String(),
+					},
+				)
 				continue
 			}
 			if _, ok := commonSet[current.Id().String()]; ok {
 				break
 			}
-			log.Debug("Adding commit", "commit", current.Id().String())
+			log.Debug(
+				"Adding commit",
+				map[string]interface{}{
+					"commit": current.Id().String(),
+				},
+			)
 			if err := pb.InsertCommit(current.Id()); err != nil {
 				return errors.Wrap(
 					err,
@@ -842,7 +916,12 @@ func handlePull(
 		pw.WritePktLine([]byte("NAK\n"))
 	}
 	if err := pb.Write(w); err != nil {
-		log.Error("Error writing pack", "err", err)
+		log.Error(
+			"Error writing pack",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
 	}
 
 	return nil
@@ -857,7 +936,7 @@ func handlePrePush(
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
-	log log15.Logger,
+	log logging.Logger,
 	w io.Writer,
 ) error {
 	return handleInfoRefs(
@@ -882,7 +961,7 @@ func handlePush(
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
-	log log15.Logger,
+	log logging.Logger,
 	r io.Reader,
 	w io.Writer,
 ) error {
@@ -897,7 +976,12 @@ func handlePush(
 
 	lockfile := NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
-		log.Info("Waiting for the lockfile", "err", err)
+		log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
 		if err := lockfile.RLock(); err != nil {
 			return errors.Wrap(
 				err,
@@ -937,7 +1021,12 @@ func handlePush(
 			)
 		}
 		if len(tokens) > 3 {
-			log.Debug("client capabilities", "list", tokens[3:])
+			log.Debug(
+				"client capabilities",
+				map[string]interface{}{
+					"list": tokens[3:],
+				},
+			)
 			for _, token := range tokens[3:] {
 				if token == "report-status" {
 					reportStatus = true
@@ -968,7 +1057,12 @@ func handlePush(
 		}
 	}
 
-	log.Debug("Commands", "commands", commands)
+	log.Debug(
+		"Commands",
+		map[string]interface{}{
+			"commands": commands,
+		},
+	)
 
 	_, err, unpackErr := protocol.PushPackfile(
 		ctx,

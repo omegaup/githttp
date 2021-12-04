@@ -8,13 +8,14 @@ import (
 	"reflect"
 	"testing"
 
-	base "github.com/omegaup/go-base/v2"
+	log15 "github.com/omegaup/go-base/logging/log15"
+	base "github.com/omegaup/go-base/v3"
 
 	git "github.com/libgit2/git2go/v33"
 )
 
 func TestHandleRefs(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -54,7 +55,7 @@ func TestHandleRefs(t *testing.T) {
 }
 
 func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		ReferenceDiscoveryCallback: func(
 			ctx context.Context,
@@ -90,7 +91,7 @@ func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
 }
 
 func TestHandleRestrictedRefs(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -127,7 +128,7 @@ func TestHandleRestrictedRefs(t *testing.T) {
 }
 
 func TestHandleArchiveCommit(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -164,7 +165,7 @@ func TestHandleArchiveCommit(t *testing.T) {
 }
 
 func TestHandleLog(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -229,7 +230,7 @@ func TestHandleLog(t *testing.T) {
 }
 
 func TestHandleLogCommit(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -278,7 +279,7 @@ func TestHandleLogCommit(t *testing.T) {
 }
 
 func TestHandleShowCommit(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -324,7 +325,7 @@ func TestHandleShowCommit(t *testing.T) {
 }
 
 func TestHandleShowTree(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -374,7 +375,7 @@ func TestHandleShowTree(t *testing.T) {
 }
 
 func TestHandleShowBlob(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
 	})
@@ -416,7 +417,7 @@ func TestHandleShowBlob(t *testing.T) {
 }
 
 func TestHandleNotFound(t *testing.T) {
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		ReferenceDiscoveryCallback: func(
 			ctx context.Context,
