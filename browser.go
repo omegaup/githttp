@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	base "github.com/omegaup/go-base/v2"
-	tracing "github.com/omegaup/go-base/v2/tracing"
+	base "github.com/omegaup/go-base/v3"
+	tracing "github.com/omegaup/go-base/v3/tracing"
 
 	git "github.com/libgit2/git2go/v33"
 	"github.com/pkg/errors"
@@ -751,9 +751,19 @@ func handleBrowse(
 
 	lockfile := NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
-		protocol.log.Info("Waiting for the lockfile", "err", err)
+		protocol.log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
 		if err := lockfile.RLock(); err != nil {
-			protocol.log.Crit("Failed to acquire the lockfile", "err", err)
+			protocol.log.Error(
+				"Failed to acquire the lockfile",
+				map[string]interface{}{
+					"err": err,
+				},
+			)
 			return err
 		}
 	}

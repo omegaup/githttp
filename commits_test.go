@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	base "github.com/omegaup/go-base/v2"
+	"github.com/omegaup/go-base/logging/log15"
 
 	git "github.com/libgit2/git2go/v33"
 )
@@ -29,7 +29,7 @@ func TestSplitTrees(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 
 	originalTree, err := BuildTree(
 		repository,
@@ -95,7 +95,13 @@ func TestSplitTrees(t *testing.T) {
 		newPaths := make([]string, 0)
 		err = splitTree.Walk(func(parent string, entry *git.TreeEntry) error {
 			path := path.Join(parent, entry.Name)
-			log.Debug("Considering", "path", path, "entry", *entry)
+			log.Debug(
+				"Considering",
+				map[string]interface{}{
+					"path":  path,
+					"entry": *entry,
+				},
+			)
 			if entry.Type != git.ObjectBlob {
 				return nil
 			}
@@ -127,7 +133,7 @@ func TestMergeTrees(t *testing.T) {
 	}
 	defer repo.Free()
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 
 	type testEntry struct {
 		trees  []map[string]io.Reader
@@ -244,7 +250,7 @@ func TestSpliceCommit(t *testing.T) {
 	}
 	defer repository.Free()
 
-	log := base.StderrLog(false)
+	log, _ := log15.New("info", false)
 
 	originalTree, err := BuildTree(
 		repository,
@@ -338,5 +344,10 @@ func TestSpliceCommit(t *testing.T) {
 		t.Fatalf("Error splicing commit: %v", err)
 	}
 
-	log.Debug("Commands changed", "newCommands", newCommands)
+	log.Debug(
+		"Commands changed",
+		map[string]interface{}{
+			"newCommands": newCommands,
+		},
+	)
 }
