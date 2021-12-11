@@ -248,11 +248,13 @@ type gitHTTPHandler struct {
 }
 
 func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	txn := tracing.FromContext(r.Context())
+	ctx := r.Context()
+	log := h.log.NewContext(ctx)
+	txn := tracing.FromContext(ctx)
 	txn.SetName(r.Method + " /:repo")
 	splitPath := strings.SplitN(r.URL.Path[1:], "/", 2)
 	if len(splitPath) < 2 {
-		h.log.Error(
+		log.Error(
 			"Request",
 			map[string]interface{}{
 				"Method": r.Method,
@@ -266,7 +268,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	repositoryName := splitPath[0]
 	txn.AddAttributes(tracing.Arg{Name: "repository", Value: repositoryName})
 	if strings.HasPrefix(repositoryName, ".") {
-		h.log.Error(
+		log.Error(
 			"Request",
 			map[string]interface{}{
 				"Method": r.Method,
@@ -283,11 +285,11 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	ctx := h.contextCallback(r.Context())
+	ctx = h.contextCallback(ctx)
 
 	repositoryPath := path.Join(h.rootPath, fmt.Sprintf("%s%s", repositoryName, h.repositorySuffix))
 	if _, err := os.Stat(repositoryPath); os.IsNotExist(err) {
-		h.log.Error(
+		log.Error(
 			"Request",
 			map[string]interface{}{
 				"Method": r.Method,
@@ -306,7 +308,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		txn.SetName(r.Method + " /:repo/info/refs?service=git-upload-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -320,8 +322,8 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
-			h.log.Error(
+		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, log, w); err != nil {
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -337,7 +339,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		txn.SetName(r.Method + " /:repo/git-upload-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPull)
 		if level == AuthorizationDenied {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -351,8 +353,8 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-upload-pack-result")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePull(ctx, repositoryPath, level, h.log, r.Body, w); err != nil {
-			h.log.Error(
+		if err := handlePull(ctx, repositoryPath, level, log, r.Body, w); err != nil {
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -369,7 +371,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		txn.SetName(r.Method + " /:repo/info/refs?service=git-receive-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -381,7 +383,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -396,8 +398,8 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/x-git-receive-pack-advertisement")
 		w.Header().Set("Cache-Control", "no-cache")
-		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, h.log, w); err != nil {
-			h.log.Error(
+		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, log, w); err != nil {
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -413,7 +415,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		txn.SetName(r.Method + " /:repo/git-receive-pack")
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationPush)
 		if level == AuthorizationDenied {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -425,7 +427,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if level == AuthorizationAllowedReadOnly {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -445,11 +447,11 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			repositoryPath,
 			level,
 			h.protocol,
-			h.log,
+			log,
 			r.Body,
 			w,
 		); err != nil {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -464,7 +466,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if (r.Method == "GET" || r.Method == "HEAD") && h.enableBrowse {
 		level, _ := h.protocol.AuthCallback(ctx, w, r, repositoryName, OperationBrowse)
 		if level == AuthorizationDenied {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -478,7 +480,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		trailingSlash := strings.HasSuffix(relativeURL.Path, "/")
 		cleanedPath := path.Clean(relativeURL.Path)
 		if strings.HasPrefix(cleanedPath, ".") {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -504,7 +506,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cleanedPath,
 			w,
 		); err != nil {
-			h.log.Error(
+			log.Error(
 				"Request",
 				map[string]interface{}{
 					"Method": r.Method,
@@ -517,7 +519,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		h.log.Error(
+		log.Error(
 			"Request",
 			map[string]interface{}{
 				"Method": r.Method,
@@ -530,7 +532,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Info(
+	log.Info(
 		"Request",
 		map[string]interface{}{
 			"Method": r.Method,
