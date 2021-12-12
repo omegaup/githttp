@@ -552,11 +552,28 @@ func handleArchive(
 	}
 	defer tree.Free()
 
+	select {
+	case <-ctx.Done():
+		return errors.Wrap(
+			ctx.Err(),
+			"context cancelled",
+		)
+	default:
+	}
+
 	w.Header().Set("Content-Type", contentType)
 	z := zip.NewWriter(w)
 	defer z.Close()
 
 	err = tree.Walk(func(parent string, entry *git.TreeEntry) error {
+		select {
+		case <-ctx.Done():
+			return errors.Wrap(
+				ctx.Err(),
+				"context cancelled",
+			)
+		default:
+		}
 		fullPath := path.Join(parent, entry.Name)
 		if entry.Type == git.ObjectTree {
 			_, err := z.CreateHeader(&zip.FileHeader{
