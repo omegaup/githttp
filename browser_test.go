@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -209,12 +210,15 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 	if "application/gzip" != response.Header().Get("Content-Type") {
 		t.Fatalf("Content-Type. Expected %s, got %s", "application/gzip", response.Header().Get("Content-Type"))
 	}
+	trailers := response.Result().Trailer
+	if _, ok := trailers["Omegaup-Uncompressed-Size"]; !ok {
+		t.Errorf("Omegaup-Uncompressed-Size was not present in the trailers: %v", trailers)
+	}
 
 	gz, err := gzip.NewReader(bytes.NewReader(response.Body.Bytes()))
 	if err != nil {
 		t.Fatalf("Error opening gzip from response: %v", err)
 	}
-	defer gz.Close()
 
 	a := tar.NewReader(gz)
 	hdr, err := a.Next()
@@ -224,6 +228,19 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 
 	if "empty" != hdr.Name {
 		t.Errorf("Expected %s, got %v", "empty", hdr.Name)
+	}
+	_, err = io.Copy(io.Discard, a)
+	if err != nil {
+		t.Fatalf("Error reading tar file: %v", err)
+	}
+	hdr, err = a.Next()
+	if err == nil {
+		t.Fatalf("Tarball has unexpected extra files: %v", hdr)
+	}
+	gz.Close()
+
+	if "0" != trailers.Get("Omegaup-Uncompressed-Size") {
+		t.Errorf("Omegaup-Uncompressed-Size trailer. Expected 0, got %v", trailers.Get("Omegaup-Uncompressed-Size"))
 	}
 }
 

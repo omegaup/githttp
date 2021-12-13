@@ -621,6 +621,7 @@ func handleArchive(
 	}
 
 	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Trailer", "Omegaup-Uncompressed-Size")
 	var z archive
 	if contentType == "application/gzip" {
 		gz := gzip.NewWriter(w)
@@ -632,6 +633,7 @@ func handleArchive(
 	}
 	defer z.Close()
 
+	var uncompressedSize int64
 	err = tree.Walk(func(parent string, entry *git.TreeEntry) error {
 		select {
 		case <-ctx.Done():
@@ -664,6 +666,7 @@ func handleArchive(
 		defer blob.Free()
 
 		// Object is a blob.
+		uncompressedSize += blob.Size()
 		w, err := z.Create(fullPath, blob.Size())
 		if err != nil {
 			return errors.Wrap(
@@ -687,6 +690,7 @@ func handleArchive(
 			"failed to walk the repository",
 		)
 	}
+	w.Header().Set("Omegaup-Uncompressed-Size", strconv.FormatInt(uncompressedSize, 10))
 	return nil
 }
 
