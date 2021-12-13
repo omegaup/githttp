@@ -1,8 +1,10 @@
 package githttp
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"net/http/httptest"
 	"reflect"
@@ -127,7 +129,7 @@ func TestHandleRestrictedRefs(t *testing.T) {
 	}
 }
 
-func TestHandleArchiveCommit(t *testing.T) {
+func TestHandleArchiveCommitZip(t *testing.T) {
 	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
@@ -161,6 +163,51 @@ func TestHandleArchiveCommit(t *testing.T) {
 		t.Errorf("Expected %d, got %d", 1, len(z.File))
 	} else if "empty" != z.File[0].Name {
 		t.Errorf("Expected %s, got %v", "empty", z.File[0])
+	}
+}
+
+func TestHandleArchiveCommitTarball(t *testing.T) {
+	log, _ := log15.New("info", false)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
+
+	repository, err := git.OpenRepository("testdata/repo.git")
+	if err != nil {
+		t.Fatalf("Error opening git repository: %v", err)
+	}
+	defer repository.Free()
+
+	response := httptest.NewRecorder()
+	if err := handleArchive(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		"/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.tar.gz",
+		"GET",
+		response,
+	); err != nil {
+		t.Fatalf("Error getting archive: %v", err)
+	}
+	if "application/gzip" != response.Header().Get("Content-Type") {
+		t.Fatalf("Content-Type. Expected %s, got %s", "application/gzip", response.Header().Get("Content-Type"))
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(response.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("Error opening gzip from response: %v", err)
+	}
+	defer gz.Close()
+
+	a := tar.NewReader(gz)
+	hdr, err := a.Next()
+	if err != nil {
+		t.Fatalf("Tarball is empty: %v", err)
+	}
+
+	if "empty" != hdr.Name {
+		t.Errorf("Expected %s, got %v", "empty", hdr.Name)
 	}
 }
 
