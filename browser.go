@@ -1,12 +1,15 @@
 package githttp
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"strconv"
@@ -461,6 +464,48 @@ func handleLog(
 	return result, nil
 }
 
+type archive interface {
+	Close() error
+	Create(path string, size int64) (io.Writer, error)
+}
+
+type zipArchive zip.Writer
+
+func (a *zipArchive) Close() error {
+	return (*zip.Writer)(a).Close()
+}
+
+func (a *zipArchive) Create(path string, size int64) (io.Writer, error) {
+	return (*zip.Writer)(a).CreateHeader(&zip.FileHeader{
+		Name: path,
+	})
+}
+
+type tarArchive tar.Writer
+
+func (a *tarArchive) Close() error {
+	return (*tar.Writer)(a).Close()
+}
+
+func (a *tarArchive) Create(path string, size int64) (io.Writer, error) {
+	hdr := &tar.Header{
+		Name: path,
+		Size: size,
+	}
+	if strings.HasSuffix(path, "/") {
+		hdr.Typeflag = tar.TypeDir
+		hdr.Mode = 0o755
+	} else {
+		hdr.Typeflag = tar.TypeReg
+		hdr.Mode = 0o644
+	}
+	err := (*tar.Writer)(a).WriteHeader(hdr)
+	if err != nil {
+		return nil, err
+	}
+	return (*tar.Writer)(a), nil
+}
+
 func handleArchive(
 	ctx context.Context,
 	repository *git.Repository,
@@ -480,7 +525,8 @@ func handleArchive(
 	rev := ""
 	contentType := ""
 	for extension, mimeType := range map[string]string{
-		".zip": "application/zip",
+		".zip":    "application/zip",
+		".tar.gz": "application/gzip",
 	} {
 		if !strings.HasSuffix(splitPath[2], extension) {
 			continue
@@ -562,7 +608,15 @@ func handleArchive(
 	}
 
 	w.Header().Set("Content-Type", contentType)
-	z := zip.NewWriter(w)
+	var z archive
+	if contentType == "application/gzip" {
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+
+		z = (*tarArchive)(tar.NewWriter(gz))
+	} else {
+		z = (*zipArchive)(zip.NewWriter(w))
+	}
 	defer z.Close()
 
 	err = tree.Walk(func(parent string, entry *git.TreeEntry) error {
@@ -576,9 +630,7 @@ func handleArchive(
 		}
 		fullPath := path.Join(parent, entry.Name)
 		if entry.Type == git.ObjectTree {
-			_, err := z.CreateHeader(&zip.FileHeader{
-				Name: fullPath + "/",
-			})
+			_, err := z.Create(fullPath+"/", 0)
 			if err != nil {
 				return errors.Wrap(
 					err,
@@ -586,15 +638,6 @@ func handleArchive(
 				)
 			}
 			return nil
-		}
-
-		// Object is a blob.
-		w, err := z.Create(fullPath)
-		if err != nil {
-			return errors.Wrap(
-				err,
-				"failed to create zip writer",
-			)
 		}
 
 		blob, err := repository.LookupBlob(entry.Id)
@@ -606,6 +649,15 @@ func handleArchive(
 			)
 		}
 		defer blob.Free()
+
+		// Object is a blob.
+		w, err := z.Create(fullPath, blob.Size())
+		if err != nil {
+			return errors.Wrap(
+				err,
+				"failed to create zip writer",
+			)
+		}
 
 		if _, err := w.Write(blob.Contents()); err != nil {
 			return errors.Wrapf(
