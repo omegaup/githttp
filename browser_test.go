@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
@@ -141,14 +142,21 @@ func TestHandleArchiveCommitZip(t *testing.T) {
 	}
 	defer repository.Free()
 
+	requestPath := "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.zip"
+	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Add("Accept", "application/zip")
+
 	response := httptest.NewRecorder()
 	if err := handleArchive(
 		context.Background(),
 		repository,
 		AuthorizationAllowed,
 		protocol,
-		"/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.zip",
-		"GET",
+		requestPath,
+		req,
 		response,
 	); err != nil {
 		t.Fatalf("Error getting archive: %v", err)
@@ -178,14 +186,22 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 	}
 	defer repository.Free()
 
+	requestPath := "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.tar.gz"
+	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Add("Accept", "application/gzip")
+	req.Header.Add("If-Tree", "417c01c8795a35b8e835113a85a5c0c1c77f67fb")
+
 	response := httptest.NewRecorder()
 	if err := handleArchive(
 		context.Background(),
 		repository,
 		AuthorizationAllowed,
 		protocol,
-		"/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.tar.gz",
-		"GET",
+		requestPath,
+		req,
 		response,
 	); err != nil {
 		t.Fatalf("Error getting archive: %v", err)
@@ -208,6 +224,41 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 
 	if "empty" != hdr.Name {
 		t.Errorf("Expected %s, got %v", "empty", hdr.Name)
+	}
+}
+
+func TestHandleArchiveCommitTarballMismatchedTree(t *testing.T) {
+	log, _ := log15.New("info", false)
+	protocol := NewGitProtocol(GitProtocolOpts{
+		Log: log,
+	})
+
+	repository, err := git.OpenRepository("testdata/repo.git")
+	if err != nil {
+		t.Fatalf("Error opening git repository: %v", err)
+	}
+	defer repository.Free()
+
+	requestPath := "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.tar.gz"
+	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Add("Accept", "application/gzip")
+	req.Header.Add("If-Tree", "this tree is invalid")
+
+	response := httptest.NewRecorder()
+	err = handleArchive(
+		context.Background(),
+		repository,
+		AuthorizationAllowed,
+		protocol,
+		requestPath,
+		req,
+		response,
+	)
+	if !base.HasErrorCategory(err, ErrPreconditionFailed) {
+		t.Errorf("Expected precondition to fail: %v", err)
 	}
 }
 
@@ -501,14 +552,19 @@ func TestHandleNotFound(t *testing.T) {
 	for _, path := range paths {
 		w := httptest.NewRecorder()
 
-		err := handleBrowse(
+		req, err := http.NewRequest("GET", "http://test"+path, nil)
+		if err != nil {
+			t.Fatalf("failed to create request: %v", err)
+		}
+		req.Header.Add("Accept", "application/zip")
+
+		err = handleBrowse(
 			context.Background(),
 			"testdata/repo.git",
 			AuthorizationAllowed,
 			protocol,
-			"GET",
-			"application/json",
 			path,
+			req,
 			w,
 		)
 		if !base.HasErrorCategory(err, ErrNotFound) {
