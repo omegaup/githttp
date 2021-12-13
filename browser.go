@@ -512,7 +512,7 @@ func handleArchive(
 	level AuthorizationLevel,
 	protocol *GitProtocol,
 	requestPath string,
-	method string,
+	r *http.Request,
 	w http.ResponseWriter,
 ) error {
 	splitPath := strings.SplitN(requestPath, "/", 3)
@@ -523,7 +523,7 @@ func handleArchive(
 		)
 	}
 	rev := ""
-	contentType := ""
+	contentType := "application/zip"
 	for extension, mimeType := range map[string]string{
 		".zip":    "application/zip",
 		".tar.gz": "application/gzip",
@@ -576,10 +576,6 @@ func handleArchive(
 		return err
 	}
 
-	if method == "HEAD" {
-		return nil
-	}
-
 	commit, err := obj.AsCommit()
 	if err != nil {
 		return errors.Wrapf(
@@ -597,6 +593,23 @@ func handleArchive(
 		)
 	}
 	defer tree.Free()
+
+	expectedTree := r.Header.Get("If-Tree")
+	if expectedTree != "" && expectedTree != tree.Id().String() {
+		return base.ErrorWithCategory(
+			ErrPreconditionFailed,
+			errors.Wrapf(
+				err,
+				"commit's tree did not match. expected %s, got %v",
+				expectedTree,
+				tree.Id().String(),
+			),
+		)
+	}
+
+	if r.Method == "HEAD" {
+		return nil
+	}
 
 	select {
 	case <-ctx.Done():
@@ -803,11 +816,12 @@ func handleBrowse(
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
-	method string,
-	acceptMIMEType string,
 	requestPath string,
+	r *http.Request,
 	w http.ResponseWriter,
 ) error {
+	method := r.Method
+	acceptMIMEType := r.Header.Get("Accept")
 	txn := tracing.FromContext(ctx)
 	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
@@ -853,7 +867,7 @@ func handleBrowse(
 		}
 	} else if strings.HasPrefix(requestPath, "/+archive/") {
 		txn.SetName(method + " /:repo/+archive/")
-		err = handleArchive(ctx, repository, level, protocol, requestPath, method, w)
+		err = handleArchive(ctx, repository, level, protocol, requestPath, r, w)
 		if err != nil {
 			return err
 		}

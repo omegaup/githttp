@@ -46,6 +46,14 @@ var (
 	// returned to http clients.
 	ErrNotFound = stderrors.New("not-found")
 
+	// ErrNotAcceptable is returned if an operation failed to produce an
+	// acceptable representation.  HTTP 406 will be returned to http clients.
+	ErrNotAcceptable = stderrors.New("not-acceptable")
+
+	// ErrPreconditionFailed is returned if an operation failed a precondition.
+	// HTTP 412 will be returned to http clients.
+	ErrPreconditionFailed = stderrors.New("precondition-failed")
+
 	// ErrDeleteDisallowed is returned when a delete operation is attempted.
 	ErrDeleteDisallowed = stderrors.New("delete-disallowed")
 
@@ -227,6 +235,18 @@ func WriteHeader(w http.ResponseWriter, err error, clearHeaders bool) error {
 	} else if base.HasErrorCategory(err, ErrForbidden) {
 		w.WriteHeader(http.StatusForbidden)
 		if cause := base.UnwrapCauseFromErrorCategory(err, ErrForbidden); cause != nil {
+			return cause
+		}
+		return err
+	} else if base.HasErrorCategory(err, ErrNotAcceptable) {
+		w.WriteHeader(http.StatusNotAcceptable)
+		if cause := base.UnwrapCauseFromErrorCategory(err, ErrNotAcceptable); cause != nil {
+			return cause
+		}
+		return err
+	} else if base.HasErrorCategory(err, ErrPreconditionFailed) {
+		w.WriteHeader(http.StatusPreconditionFailed)
+		if cause := base.UnwrapCauseFromErrorCategory(err, ErrPreconditionFailed); cause != nil {
 			return cause
 		}
 		return err
@@ -501,9 +521,8 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			repositoryPath,
 			level,
 			h.protocol,
-			r.Method,
-			r.Header.Get("Accept"),
 			cleanedPath,
+			r,
 			w,
 		); err != nil {
 			log.Error(
