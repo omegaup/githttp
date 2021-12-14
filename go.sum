@@ -32,8 +32,8 @@ github.com/newrelic/go-agent/v3 v3.15.2/go.mod h1:1A1dssWBwzB7UemzRU6ZVaGDsI+cEn
 github.com/omegaup/go-base/logging/log15 v0.0.0-20211211212159-014332e01547 h1:+SBWLdt2W+OwgpSmpa7AQyfUP7e/vMRtZpxINbYObaY=
 github.com/omegaup/go-base/logging/log15 v0.0.0-20211211212159-014332e01547/go.mod h1:adWq3jVZVRlre+15uby0M/AQiAFdpQPYnXiKK90KD4Q=
 github.com/omegaup/go-base/v3 v3.0.0/go.mod h1:mJFH+bckd4aAXcpXDBFN6Et5p3sxYsHCxK8pUDp0YlM=
-github.com/omegaup/go-base/v3 v3.2.0 h1:exzk5NudNpJVn8chvvznFpI5gDZh45+ZVJE1PaWnVWQ=
-github.com/omegaup/go-base/v3 v3.2.0/go.mod h1:mJFH+bckd4aAXcpXDBFN6Et5p3sxYsHCxK8pUDp0YlM=
+github.com/omegaup/go-base/v3 v3.2.1 h1:m6OqWLAu4yr4oUwyhCFj2R187YSyDM6r06xGMY9Xt/w=
+github.com/omegaup/go-base/v3 v3.2.1/go.mod h1:mJFH+bckd4aAXcpXDBFN6Et5p3sxYsHCxK8pUDp0YlM=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
