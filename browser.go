@@ -420,12 +420,7 @@ func handleLog(
 	if obj.Type() != git.ObjectCommit {
 		return nil, base.ErrorWithCategory(
 			ErrNotFound,
-			errors.Wrapf(
-				err,
-				"revision %s is not a commit: %v",
-				rev,
-				obj.Type(),
-			),
+			errors.Errorf("revision %s is not a commit: %v", rev, obj.Type()),
 		)
 	}
 
@@ -622,12 +617,7 @@ func handleArchive(
 	} else {
 		return base.ErrorWithCategory(
 			ErrNotFound,
-			errors.Wrapf(
-				err,
-				"revision %s is not a commit: %v",
-				rev,
-				obj.Type(),
-			),
+			errors.Errorf("revision %s is not a commit: %v", rev, obj.Type()),
 		)
 	}
 
@@ -769,7 +759,6 @@ func handleShow(
 			protocol,
 			obj.Id(),
 		); err != nil {
-			fmt.Printf("%v\n", rev)
 			return nil, err
 		}
 
@@ -789,6 +778,45 @@ func handleShow(
 			}
 			defer obj.Free()
 		}
+	} else if obj.Type() == git.ObjectTree {
+		// URLs of the form /+/tree-id/path.
+		if !isGitObjectID(rev) {
+			return nil, base.ErrorWithCategory(
+				ErrNotFound,
+				errors.Errorf("%q is not a valid tree-id", rev),
+			)
+		}
+		if len(splitPath) > 3 {
+			tree, err := obj.AsTree()
+			if err != nil {
+				return nil, err
+			}
+			defer tree.Free()
+			entry, err := tree.EntryByPath(splitPath[3])
+			if err != nil {
+				return nil, base.ErrorWithCategory(
+					ErrNotFound,
+					errors.Wrapf(
+						err,
+						"path %q not found in tree %q",
+						splitPath,
+						rev,
+					),
+				)
+			}
+			obj, err = repository.Lookup(entry.Id)
+			if err != nil {
+				return nil, base.ErrorWithCategory(
+					ErrNotFound,
+					errors.Wrapf(
+						err,
+						"path %q not found in tree %q",
+						splitPath,
+						rev,
+					),
+				)
+			}
+		}
 	} else {
 		// URLs of the form /+/objectid (note the lack of a trailing slash).
 		//
@@ -804,11 +832,7 @@ func handleShow(
 		if len(splitPath) != 3 {
 			return nil, base.ErrorWithCategory(
 				ErrNotFound,
-				errors.Wrapf(
-					err,
-					"cannot use paths with an object-id for %q",
-					splitPath,
-				),
+				errors.Errorf("cannot use paths with an object-id for %q", splitPath),
 			)
 		}
 	}
