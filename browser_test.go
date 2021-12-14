@@ -244,7 +244,7 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 	}
 }
 
-func TestHandleArchiveCommitTarballMismatchedTree(t *testing.T) {
+func TestHandleArchiveCommitTarballFromTree(t *testing.T) {
 	log, _ := log15.New("info", false)
 	protocol := NewGitProtocol(GitProtocolOpts{
 		Log: log,
@@ -256,16 +256,15 @@ func TestHandleArchiveCommitTarballMismatchedTree(t *testing.T) {
 	}
 	defer repository.Free()
 
-	requestPath := "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.tar.gz"
+	requestPath := "/+archive/417c01c8795a35b8e835113a85a5c0c1c77f67fb.tar.gz"
 	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
 	req.Header.Add("Accept", "application/gzip")
-	req.Header.Add("If-Tree", "this tree is invalid")
 
 	response := httptest.NewRecorder()
-	err = handleArchive(
+	if err := handleArchive(
 		context.Background(),
 		repository,
 		AuthorizationAllowed,
@@ -273,9 +272,43 @@ func TestHandleArchiveCommitTarballMismatchedTree(t *testing.T) {
 		requestPath,
 		req,
 		response,
-	)
-	if !base.HasErrorCategory(err, ErrPreconditionFailed) {
-		t.Errorf("Expected precondition to fail: %v", err)
+	); err != nil {
+		t.Fatalf("Error getting archive: %v", err)
+	}
+	if "application/gzip" != response.Header().Get("Content-Type") {
+		t.Fatalf("Content-Type. Expected %s, got %s", "application/gzip", response.Header().Get("Content-Type"))
+	}
+	trailers := response.Result().Trailer
+	if _, ok := trailers["Omegaup-Uncompressed-Size"]; !ok {
+		t.Errorf("Omegaup-Uncompressed-Size was not present in the trailers: %v", trailers)
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(response.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("Error opening gzip from response: %v", err)
+	}
+
+	a := tar.NewReader(gz)
+	hdr, err := a.Next()
+	if err != nil {
+		t.Fatalf("Tarball is empty: %v", err)
+	}
+
+	if "empty" != hdr.Name {
+		t.Errorf("Expected %s, got %v", "empty", hdr.Name)
+	}
+	_, err = io.Copy(io.Discard, a)
+	if err != nil {
+		t.Fatalf("Error reading tar file: %v", err)
+	}
+	hdr, err = a.Next()
+	if err == nil {
+		t.Fatalf("Tarball has unexpected extra files: %v", hdr)
+	}
+	gz.Close()
+
+	if "0" != trailers.Get("Omegaup-Uncompressed-Size") {
+		t.Errorf("Omegaup-Uncompressed-Size trailer. Expected 0, got %v", trailers.Get("Omegaup-Uncompressed-Size"))
 	}
 }
 
@@ -556,11 +589,14 @@ func TestHandleNotFound(t *testing.T) {
 		"/+/foo",          // Invalid ref.
 		"/+/master/foo",   // Path not found.
 		"/+/master/empty", // Path exists, but ref not viewable.
-		"/+/6d2439d2e920ba92d8e485e75d1b740ae51b609a/empty", // Path exists, but ref not viewable.
-		"/+/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391/",      // Valid ref, but is not a commit.
-		"/+archive/foo.zip",    // Invalid ref.
-		"/+archive/master.zip", // Valid ref, but is not viewable.
-		"/+archive/6d2439d2e920ba92d8e485e75d1b740ae51b609a.zip", // Valid ref, but is not viewable.
+		"/+/6d2439d2e920ba92d8e485e75d1b740ae51b609a/empty",        // Path exists, but ref not viewable.
+		"/+/6d2439d2e920ba92d8e485e75d1b740ae51b609a^{tree}/empty", // Path exists, but ref not viewable.
+		"/+/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391/",             // Valid ref, but is not a commit.
+		"/+archive/foo.zip",                                             // Invalid ref.
+		"/+archive/master.zip",                                          // Valid ref, but is not viewable.
+		"/+archive/master^{tree}.zip",                                   // Valid ref, but is not viewable.
+		"/+archive/6d2439d2e920ba92d8e485e75d1b740ae51b609a.zip",        // Valid ref, but is not viewable.
+		"/+archive/6d2439d2e920ba92d8e485e75d1b740ae51b609a^{tree}.zip", // Valid ref, but is not viewable.
 		"/+log/foo",    // Invalid ref.
 		"/+log/master", // Valid ref, but is not viewable.
 		"/+log/6d2439d2e920ba92d8e485e75d1b740ae51b609a", // Valid ref, but is not viewable.

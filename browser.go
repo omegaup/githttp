@@ -80,6 +80,21 @@ func (r *LogResult) String() string {
 	return buf.String()
 }
 
+func isGitObjectID(s string) bool {
+	if len(s) != 40 {
+		return false
+	}
+	for _, c := range s {
+		switch {
+		case '0' <= c && c <= '9':
+		case 'a' <= c && c <= 'f':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // A TreeEntryResult represents one entry in a git tree.
 type TreeEntryResult struct {
 	Mode git.Filemode `json:"mode"`
@@ -554,7 +569,52 @@ func handleArchive(
 		)
 	}
 	defer obj.Free()
-	if obj.Type() != git.ObjectCommit {
+	var tree *git.Tree
+	if obj.Type() == git.ObjectCommit {
+		if err := isCommitIDReachable(
+			ctx,
+			repository,
+			level,
+			protocol,
+			obj.Id(),
+		); err != nil {
+			return err
+		}
+
+		commit, err := obj.AsCommit()
+		if err != nil {
+			return errors.Wrapf(
+				err,
+				"failed to get object for %s",
+				rev,
+			)
+		}
+		defer commit.Free()
+		tree, err = commit.Tree()
+		if err != nil {
+			return errors.Wrap(
+				err,
+				"failed to get the commit's tree",
+			)
+		}
+		defer tree.Free()
+	} else if obj.Type() == git.ObjectTree {
+		// Trees are allowed only if they are expressed as the full object id.
+		if !isGitObjectID(rev) {
+			return base.ErrorWithCategory(
+				ErrNotFound,
+				errors.Errorf("%q is not a valid tree-id", rev),
+			)
+		}
+		tree, err = obj.AsTree()
+		if err != nil {
+			return errors.Wrap(
+				err,
+				"failed to get the tree",
+			)
+		}
+		defer tree.Free()
+	} else {
 		return base.ErrorWithCategory(
 			ErrNotFound,
 			errors.Wrapf(
@@ -562,47 +622,6 @@ func handleArchive(
 				"revision %s is not a commit: %v",
 				rev,
 				obj.Type(),
-			),
-		)
-	}
-
-	if err := isCommitIDReachable(
-		ctx,
-		repository,
-		level,
-		protocol,
-		obj.Id(),
-	); err != nil {
-		return err
-	}
-
-	commit, err := obj.AsCommit()
-	if err != nil {
-		return errors.Wrapf(
-			err,
-			"failed to get object for %s",
-			rev,
-		)
-	}
-	defer commit.Free()
-	tree, err := commit.Tree()
-	if err != nil {
-		return errors.Wrap(
-			err,
-			"failed to get the commit's tree",
-		)
-	}
-	defer tree.Free()
-
-	expectedTree := r.Header.Get("If-Tree")
-	if expectedTree != "" && expectedTree != tree.Id().String() {
-		return base.ErrorWithCategory(
-			ErrPreconditionFailed,
-			errors.Wrapf(
-				err,
-				"commit's tree did not match. expected %s, got %v",
-				expectedTree,
-				tree.Id().String(),
 			),
 		)
 	}
@@ -754,9 +773,17 @@ func handleShow(
 			defer obj.Free()
 		}
 	} else {
-		// URLs of the form /+/objectid. Shows an object, typically a commit referenced
-		// by one of the named revisions (the ones that gitrevisions(7) supports),
-		// or any other object by its SHA-1 name.
+		// URLs of the form /+/objectid (note the lack of a trailing slash).
+		//
+		// Shows an object, typically a commit referenced by one of the named
+		// revisions (the ones that gitrevisions(7) supports), or any other object
+		// by its SHA-1 name.
+		if !isGitObjectID(rev) {
+			return nil, base.ErrorWithCategory(
+				ErrNotFound,
+				errors.Errorf("%q is not a valid tree-id", rev),
+			)
+		}
 		if len(splitPath) != 3 {
 			return nil, base.ErrorWithCategory(
 				ErrNotFound,
