@@ -557,6 +557,11 @@ func handleArchive(
 			errors.New("empty revision"),
 		)
 	}
+	odb, err := repository.Odb()
+	if err != nil {
+		return errors.Wrapf(err, "failed to get repository odb")
+	}
+	defer odb.Free()
 	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
 		return base.ErrorWithCategory(
@@ -694,12 +699,24 @@ func handleArchive(
 			)
 		}
 
-		if _, err := w.Write(blob.Contents()); err != nil {
-			return errors.Wrapf(
-				err,
-				"failed to write object %s",
-				entry.Id,
-			)
+		// Attempt to uncompress this object on the fly from the gzip stream
+		// rather than decompressing completely it in memory. This is only
+		// possible if the object is not deltified.
+		stream, err := odb.NewReadStream(entry.Id)
+		if err == nil {
+			defer stream.Free()
+			_, err = io.Copy(w, stream)
+			if err != nil {
+				return errors.Wrapf(err, "failed to copy blob stream %s", entry.Id)
+			}
+		} else {
+			if _, err := w.Write(blob.Contents()); err != nil {
+				return errors.Wrapf(
+					err,
+					"failed to write object %s",
+					entry.Id,
+				)
+			}
 		}
 		return nil
 	})
