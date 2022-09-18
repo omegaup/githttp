@@ -12,10 +12,10 @@ github.com/mattn/go-colorable v0.1.12 h1:jF+Du6AlPIjs2BiUiQlKOX0rt3SujHxPnksPKZb
 github.com/mattn/go-colorable v0.1.12/go.mod h1:u5H1YNBxpqRaxsYJYSkiCWKzEfiAb1Gb520KVy5xxl4=
 github.com/mattn/go-isatty v0.0.14 h1:yVuAays6BHfxijgZPzw+3Zlu5yQgKGP2/hcQbHb7S9Y=
 github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj79iQHKdU27kJ6hsGG94=
-github.com/omegaup/go-base/logging/log15/v3 v3.3.6 h1:smpRGjp923p+kf9tN+769ikOGY4DeriVJLX+u9o8hts=
-github.com/omegaup/go-base/logging/log15/v3 v3.3.6/go.mod h1:1CpXEwIp/z14h5lOR7+O1KKM2EMjUwIA0/kyB4LtYkk=
-github.com/omegaup/go-base/v3 v3.3.6 h1:3FybK1RM4rFPQQpMIFbO/cz3/EA9TWhOuzLhoxvG2w4=
-github.com/omegaup/go-base/v3 v3.3.6/go.mod h1:+N7tcCbx3AUEEwmUpsAzJktPCviwL57M8BTJ5m8GX9w=
+github.com/omegaup/go-base/logging/log15/v3 v3.3.7 h1:5CrQc6AWNApSV2YHrn8moZq3cF2E6e0tXXoC95BtNG4=
+github.com/omegaup/go-base/logging/log15/v3 v3.3.7/go.mod h1:1CpXEwIp/z14h5lOR7+O1KKM2EMjUwIA0/kyB4LtYkk=
+github.com/omegaup/go-base/v3 v3.3.7 h1:qq2pyfTzBsnzXZeYekJJe3HdEJgUMGlxmSwne0FPWEk=
+github.com/omegaup/go-base/v3 v3.3.7/go.mod h1:+N7tcCbx3AUEEwmUpsAzJktPCviwL57M8BTJ5m8GX9w=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
