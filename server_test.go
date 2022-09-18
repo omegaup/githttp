@@ -47,6 +47,8 @@ func TestServerClone(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	log, _ := log15.New("info", false)
 	handler := NewGitServer(GitServerOpts{
@@ -57,7 +59,8 @@ func TestServerClone(t *testing.T) {
 			AuthCallback: allowAuthorizationCallback,
 			Log:          log,
 		}),
-		Log: log,
+		LockfileManager: m,
+		Log:             log,
 	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -91,6 +94,8 @@ func TestServerCloneShallow(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	log, _ := log15.New("info", false)
 	handler := NewGitServer(GitServerOpts{
@@ -101,7 +106,8 @@ func TestServerCloneShallow(t *testing.T) {
 			AuthCallback: allowAuthorizationCallback,
 			Log:          log,
 		}),
-		Log: log,
+		LockfileManager: m,
+		Log:             log,
 	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -158,6 +164,8 @@ func TestServerPush(t *testing.T) {
 	} else {
 		defer os.RemoveAll(dir)
 	}
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(filepath.Join(dir, "repo.git"), true)
@@ -175,7 +183,8 @@ func TestServerPush(t *testing.T) {
 			AuthCallback: allowAuthorizationCallback,
 			Log:          log,
 		}),
-		Log: log,
+		LockfileManager: m,
+		Log:             log,
 	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()
@@ -258,6 +267,8 @@ func TestGitbomb(t *testing.T) {
 	} else {
 		defer os.RemoveAll(dir)
 	}
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(filepath.Join(dir, "repo.git"), true)
@@ -275,7 +286,8 @@ func TestGitbomb(t *testing.T) {
 			AuthCallback: allowAuthorizationCallback,
 			Log:          log,
 		}),
-		Log: log,
+		LockfileManager: m,
+		Log:             log,
 	})
 	ts := httptest.NewServer(handler)
 	defer ts.Close()

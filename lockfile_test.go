@@ -16,7 +16,10 @@ func TestUpgradeLock(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	l := NewLockfile(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
+
+	l := m.NewLockfile(dir)
 	if err := l.RLock(); err != nil {
 		t.Fatalf("Failed to lock git repository for reading: %v", err)
 	}
@@ -63,7 +66,10 @@ func TestMultipleReadersLock(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	l := NewLockfile(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
+
+	l := m.NewLockfile(dir)
 	if err = l.RLock(); err != nil {
 		t.Fatalf("Failed to lock git repository for reading: %v", err)
 	}
@@ -74,7 +80,7 @@ func TestMultipleReadersLock(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			l := NewLockfile(dir)
+			l := m.NewLockfile(dir)
 			if err := l.RLock(); err != nil {
 				t.Errorf("Failed to lock git repository for reading: %v", err)
 				panic(err)
@@ -93,13 +99,16 @@ func TestSingleWriterLock(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
+	m := NewLockfileManager()
+	defer m.Clear()
+
 	var writerCount int32
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			l := NewLockfile(dir)
+			l := m.NewLockfile(dir)
 			if err := l.Lock(); err != nil {
 				t.Errorf("Failed to lock git repository for reading: %v", err)
 				panic(err)

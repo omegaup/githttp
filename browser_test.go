@@ -566,6 +566,7 @@ func TestHandleShowBlob(t *testing.T) {
 
 func TestHandleNotFound(t *testing.T) {
 	log, _ := log15.New("info", false)
+	lockfileManager := NewLockfileManager()
 	protocol := NewGitProtocol(GitProtocolOpts{
 		ReferenceDiscoveryCallback: func(
 			ctx context.Context,
@@ -613,6 +614,7 @@ func TestHandleNotFound(t *testing.T) {
 
 		err = handleBrowse(
 			context.Background(),
+			lockfileManager,
 			"testdata/repo.git",
 			AuthorizationAllowed,
 			protocol,

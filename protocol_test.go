@@ -60,8 +60,12 @@ func TestDiscoverReferences(t *testing.T) {
 func TestHandlePrePullRestricted(t *testing.T) {
 	var buf bytes.Buffer
 	log, _ := log15.New("info", false)
+	m := NewLockfileManager()
+	defer m.Clear()
+
 	err := handlePrePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(GitProtocolOpts{
@@ -93,8 +97,12 @@ func TestHandlePrePullRestricted(t *testing.T) {
 func TestHandlePrePull(t *testing.T) {
 	var buf bytes.Buffer
 	log, _ := log15.New("info", false)
+	m := NewLockfileManager()
+	defer m.Clear()
+
 	err := handlePrePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -127,8 +135,12 @@ func TestHandlePrePull(t *testing.T) {
 func TestHandlePrePush(t *testing.T) {
 	var buf bytes.Buffer
 	log, _ := log15.New("info", false)
+	m := NewLockfileManager()
+	defer m.Clear()
+
 	err := handlePrePush(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -160,8 +172,12 @@ func TestHandlePrePush(t *testing.T) {
 func TestHandleEmptyPrePull(t *testing.T) {
 	var buf bytes.Buffer
 	log, _ := log15.New("info", false)
+	m := NewLockfileManager()
+	defer m.Clear()
+
 	err := handlePrePull(
 		context.Background(),
+		m,
 		"testdata/empty.git",
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -190,8 +206,12 @@ func TestHandleEmptyPrePull(t *testing.T) {
 func TestHandleEmptyPrePush(t *testing.T) {
 	var buf bytes.Buffer
 	log, _ := log15.New("info", false)
+	m := NewLockfileManager()
+	defer m.Clear()
+
 	err := handlePrePush(
 		context.Background(),
+		m,
 		"testdata/empty.git",
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -227,6 +247,8 @@ func TestHandlePullUnknownRef(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		// Taken from git 2.14.1
@@ -239,6 +261,7 @@ func TestHandlePullUnknownRef(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		log,
@@ -268,6 +291,8 @@ func TestHandleClone(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		// Taken from git 2.14.1
@@ -280,6 +305,7 @@ func TestHandleClone(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		log,
@@ -343,6 +369,8 @@ func TestHandlePull(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		// Taken from git 2.14.1
@@ -356,6 +384,7 @@ func TestHandlePull(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		log,
@@ -415,6 +444,8 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		// Taken from git 2.14.1
@@ -427,6 +458,7 @@ func TestHandleCloneShallowNegotiation(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		log,
@@ -456,6 +488,8 @@ func TestHandleCloneShallowClone(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		// Taken from git 2.14.1
@@ -469,6 +503,7 @@ func TestHandleCloneShallowClone(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		log,
@@ -531,6 +566,8 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		// Taken from git 2.14.1
@@ -546,6 +583,7 @@ func TestHandleCloneShallowUnshallow(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePull(
 		context.Background(),
+		m,
 		"testdata/repo.git",
 		AuthorizationAllowed,
 		log,
@@ -608,6 +646,8 @@ func TestHandlePushUnborn(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -636,6 +676,7 @@ func TestHandlePushUnborn(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -664,6 +705,7 @@ func TestHandlePushUnborn(t *testing.T) {
 	var buf bytes.Buffer
 	err = handlePrePull(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -701,6 +743,8 @@ func TestHandlePushPreprocess(t *testing.T) {
 	if os.Getenv("PRESERVE") == "" {
 		defer os.RemoveAll(dir)
 	}
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -729,6 +773,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -836,6 +881,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 	var buf bytes.Buffer
 	err = handlePrePull(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -873,6 +919,8 @@ func TestHandlePushCallback(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -901,6 +949,7 @@ func TestHandlePushCallback(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -943,6 +992,8 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -971,6 +1022,7 @@ func TestHandlePushUnknownCommit(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowed,
 		NewGitProtocol(GitProtocolOpts{
@@ -1004,6 +1056,8 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -1032,6 +1086,7 @@ func TestHandlePushRestrictedRef(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(GitProtocolOpts{
@@ -1065,6 +1120,8 @@ func TestHandlePushMerge(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -1093,6 +1150,7 @@ func TestHandlePushMerge(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(GitProtocolOpts{
@@ -1126,6 +1184,8 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -1154,6 +1214,7 @@ func TestHandlePushMultipleCommits(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(GitProtocolOpts{
@@ -1187,6 +1248,8 @@ func TestHandleNonFastForward(t *testing.T) {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
 	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
 
 	{
 		repo, err := git.InitRepository(dir, true)
@@ -1215,6 +1278,7 @@ func TestHandleNonFastForward(t *testing.T) {
 	log, _ := log15.New("info", false)
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(GitProtocolOpts{
@@ -1259,6 +1323,7 @@ func TestHandleNonFastForward(t *testing.T) {
 
 	err = handlePush(
 		context.Background(),
+		m,
 		dir,
 		AuthorizationAllowedRestricted,
 		NewGitProtocol(GitProtocolOpts{

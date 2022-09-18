@@ -885,6 +885,7 @@ func handleShow(
 
 func handleBrowse(
 	ctx context.Context,
+	m *LockfileManager,
 	repositoryPath string,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
@@ -904,7 +905,7 @@ func handleBrowse(
 	}
 	defer repository.Free()
 
-	lockfile := NewLockfile(repository.Path())
+	lockfile := m.NewLockfile(repository.Path())
 	if ok, err := lockfile.TryRLock(); !ok {
 		protocol.log.Info(
 			"Waiting for the lockfile",
