@@ -4,8 +4,8 @@ go 1.18
 
 require (
 	github.com/libgit2/git2go/v33 v33.0.4
-	github.com/omegaup/go-base/logging/log15/v3 v3.3.6
-	github.com/omegaup/go-base/v3 v3.3.6
+	github.com/omegaup/go-base/logging/log15/v3 v3.3.7
+	github.com/omegaup/go-base/v3 v3.3.7
 	github.com/pkg/errors v0.9.1
 )
 
