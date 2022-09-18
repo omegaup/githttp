@@ -29,10 +29,11 @@ func TestHandleRefs(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	result, err := handleRefs(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		"GET",
@@ -76,10 +77,11 @@ func TestHandleRefsWithReferenceDiscoveryCallback(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	result, err := handleRefs(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		"GET",
@@ -105,10 +107,11 @@ func TestHandleRestrictedRefs(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	result, err := handleRefs(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowedRestricted,
 		protocol,
 		"GET",
@@ -142,6 +145,7 @@ func TestHandleArchiveCommitZip(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	requestPath := "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.zip"
 	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
@@ -153,7 +157,7 @@ func TestHandleArchiveCommitZip(t *testing.T) {
 	response := httptest.NewRecorder()
 	if err := handleArchive(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		requestPath,
@@ -186,6 +190,7 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	requestPath := "/+archive/88aa3454adb27c3c343ab57564d962a0a7f6a3c1.tar.gz"
 	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
@@ -198,7 +203,7 @@ func TestHandleArchiveCommitTarball(t *testing.T) {
 	response := httptest.NewRecorder()
 	if err := handleArchive(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		requestPath,
@@ -255,6 +260,7 @@ func TestHandleArchiveCommitTarballFromTree(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	requestPath := "/+archive/417c01c8795a35b8e835113a85a5c0c1c77f67fb.tar.gz"
 	req, err := http.NewRequest("GET", "http://test"+requestPath, nil)
@@ -266,7 +272,7 @@ func TestHandleArchiveCommitTarballFromTree(t *testing.T) {
 	response := httptest.NewRecorder()
 	if err := handleArchive(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		requestPath,
@@ -323,10 +329,11 @@ func TestHandleLog(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	result, err := handleLog(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		"/+log/",
@@ -388,10 +395,11 @@ func TestHandleLogCommit(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	result, err := handleLog(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		"/+log/88aa3454adb27c3c343ab57564d962a0a7f6a3c1",
@@ -437,10 +445,11 @@ func TestHandleShowCommit(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	result, err := handleShow(
 		context.Background(),
-		repository,
+		handle,
 		AuthorizationAllowed,
 		protocol,
 		"/+/88aa3454adb27c3c343ab57564d962a0a7f6a3c1",
@@ -483,6 +492,7 @@ func TestHandleShowTree(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	expected := &TreeResult{
 		ID: "417c01c8795a35b8e835113a85a5c0c1c77f67fb",
@@ -505,7 +515,7 @@ func TestHandleShowTree(t *testing.T) {
 	} {
 		result, err := handleShow(
 			context.Background(),
-			repository,
+			handle,
 			AuthorizationAllowed,
 			protocol,
 			requestURL,
@@ -533,6 +543,7 @@ func TestHandleShowBlob(t *testing.T) {
 		t.Fatalf("Error opening git repository: %v", err)
 	}
 	defer repository.Free()
+	handle := &RepositoryHandle{Repository: repository}
 
 	expected := &BlobResult{
 		ID:       "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
@@ -548,7 +559,7 @@ func TestHandleShowBlob(t *testing.T) {
 	} {
 		result, err := handleShow(
 			context.Background(),
-			repository,
+			handle,
 			AuthorizationAllowed,
 			protocol,
 			requestURL,
