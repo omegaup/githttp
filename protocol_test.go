@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/omegaup/go-base/logging/log15"
+	"github.com/omegaup/go-base/logging/log15/v3"
 
 	git "github.com/libgit2/git2go/v33"
 )
@@ -747,7 +747,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 				if err != nil {
 					log.Error(
 						"Error looking up commit",
-						map[string]interface{}{
+						map[string]any{
 							"err": err,
 						},
 					)
@@ -794,7 +794,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 				if err != nil {
 					log.Error(
 						"Error splicing commit",
-						map[string]interface{}{
+						map[string]any{
 							"err": err,
 						},
 					)
@@ -803,7 +803,7 @@ func TestHandlePushPreprocess(t *testing.T) {
 
 				log.Debug(
 					"Commands changed",
-					map[string]interface{}{
+					map[string]any{
 						"old commands": originalCommands,
 						"newCommands":  newCommands,
 					},

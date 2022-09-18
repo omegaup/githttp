@@ -218,7 +218,7 @@ func (p *GitProtocol) PushPackfile(
 				} else if level == AuthorizationAllowedRestricted && isRestrictedRef(command.ReferenceName) {
 					p.log.Info(
 						"restricted ref",
-						map[string]interface{}{
+						map[string]any{
 							"ref": command.ReferenceName,
 						},
 					)
@@ -226,7 +226,7 @@ func (p *GitProtocol) PushPackfile(
 				} else if !p.ReferenceDiscoveryCallback(ctx, repository, command.ReferenceName) {
 					p.log.Info(
 						"user does not have access",
-						map[string]interface{}{
+						map[string]any{
 							"ref": command.ReferenceName,
 						},
 					)
@@ -271,7 +271,7 @@ func (p *GitProtocol) PushPackfile(
 	if ok, err := lockfile.TryLock(); !ok {
 		p.log.Info(
 			"Waiting for the lockfile",
-			map[string]interface{}{
+			map[string]any{
 				"err": err,
 			},
 		)
@@ -335,7 +335,7 @@ func (p *GitProtocol) PushPackfile(
 		ref.Free()
 		p.log.Info(
 			"Ref successfully updated",
-			map[string]interface{}{
+			map[string]any{
 				"command": command,
 			},
 		)
@@ -692,7 +692,7 @@ func handlePull(
 		}
 		log.Debug(
 			"pktline",
-			map[string]interface{}{
+			map[string]any{
 				"data": strings.Trim(string(line), "\n"),
 			},
 		)
@@ -719,7 +719,7 @@ func handlePull(
 			}
 			log.Debug(
 				"client capabilities",
-				map[string]interface{}{
+				map[string]any{
 					"list": tokens[2:],
 				},
 			)
@@ -742,7 +742,7 @@ func handlePull(
 			if err != nil {
 				log.Debug(
 					"Unknown commit requested",
-					map[string]interface{}{
+					map[string]any{
 						"oid": tokens[1],
 					},
 				)
@@ -777,7 +777,7 @@ func handlePull(
 		} else {
 			log.Debug(
 				"unknown command",
-				map[string]interface{}{
+				map[string]any{
 					"command": tokens[0],
 				},
 			)
@@ -823,7 +823,7 @@ func handlePull(
 		}
 		log.Debug(
 			"pktline",
-			map[string]interface{}{
+			map[string]any{
 				"data": strings.Trim(string(line), "\n"),
 			},
 		)
@@ -866,7 +866,7 @@ func handlePull(
 
 	log.Debug(
 		"Negotiation",
-		map[string]interface{}{
+		map[string]any{
 			"want":   wantMap,
 			"have":   haveSet,
 			"common": commonSet,
@@ -888,7 +888,7 @@ func handlePull(
 			if _, ok := shallowSet[current.Id().String()]; ok {
 				log.Debug(
 					"Skipping commit",
-					map[string]interface{}{
+					map[string]any{
 						"commit": current.Id().String(),
 					},
 				)
@@ -899,7 +899,7 @@ func handlePull(
 			}
 			log.Debug(
 				"Adding commit",
-				map[string]interface{}{
+				map[string]any{
 					"commit": current.Id().String(),
 				},
 			)
@@ -918,7 +918,7 @@ func handlePull(
 	if err := pb.Write(w); err != nil {
 		log.Error(
 			"Error writing pack",
-			map[string]interface{}{
+			map[string]any{
 				"err": err,
 			},
 		)
@@ -1023,7 +1023,7 @@ func handlePush(
 		if len(tokens) > 3 {
 			log.Debug(
 				"client capabilities",
-				map[string]interface{}{
+				map[string]any{
 					"list": tokens[3:],
 				},
 			)
@@ -1059,7 +1059,7 @@ func handlePush(
 
 	log.Debug(
 		"Commands",
-		map[string]interface{}{
+		map[string]any{
 			"commands": commands,
 		},
 	)
