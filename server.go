@@ -276,7 +276,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(splitPath) < 2 {
 		log.Error(
 			"Request",
-			map[string]interface{}{
+			map[string]any{
 				"Method": r.Method,
 				"path":   r.URL.Path[1:],
 				"error":  "not found",
@@ -290,7 +290,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(repositoryName, ".") {
 		log.Error(
 			"Request",
-			map[string]interface{}{
+			map[string]any{
 				"Method": r.Method,
 				"path":   r.URL.Path[1:],
 				"error":  "repository path starts with .",
@@ -311,7 +311,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat(repositoryPath); os.IsNotExist(err) {
 		log.Error(
 			"Request",
-			map[string]interface{}{
+			map[string]any{
 				"Method": r.Method,
 				"URL":    relativeURL,
 				"path":   repositoryPath,
@@ -330,7 +330,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationDenied {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -345,7 +345,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err := handlePrePull(ctx, repositoryPath, level, h.protocol, log, w); err != nil {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -361,7 +361,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationDenied {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -376,7 +376,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err := handlePull(ctx, repositoryPath, level, log, r.Body, w); err != nil {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -393,7 +393,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationDenied {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -405,7 +405,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationAllowedReadOnly {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -421,7 +421,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err := handlePrePush(ctx, repositoryPath, level, h.protocol, log, w); err != nil {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -437,7 +437,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationDenied {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -449,7 +449,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationAllowedReadOnly {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -473,7 +473,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		); err != nil {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -488,7 +488,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if level == AuthorizationDenied {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -502,7 +502,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(cleanedPath, ".") {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -527,7 +527,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		); err != nil {
 			log.Error(
 				"Request",
-				map[string]interface{}{
+				map[string]any{
 					"Method": r.Method,
 					"URL":    relativeURL,
 					"path":   repositoryPath,
@@ -540,7 +540,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Error(
 			"Request",
-			map[string]interface{}{
+			map[string]any{
 				"Method": r.Method,
 				"URL":    relativeURL,
 				"path":   repositoryPath,
@@ -553,7 +553,7 @@ func (h *gitHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Info(
 		"Request",
-		map[string]interface{}{
+		map[string]any{
 			"Method": r.Method,
 			"URL":    relativeURL,
 			"path":   repositoryPath,

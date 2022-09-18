@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/omegaup/go-base/logging/log15"
+	"github.com/omegaup/go-base/logging/log15/v3"
 
 	git "github.com/libgit2/git2go/v33"
 )
@@ -151,7 +151,7 @@ func TestServerPush(t *testing.T) {
 	if os.Getenv("PRESERVE") != "" {
 		log.Info(
 			"Preserving test directory",
-			map[string]interface{}{
+			map[string]any{
 				"path": dir,
 			},
 		)
@@ -251,7 +251,7 @@ func TestGitbomb(t *testing.T) {
 	if os.Getenv("PRESERVE") != "" {
 		log.Info(
 			"Preserving test directory",
-			map[string]interface{}{
+			map[string]any{
 				"path": dir,
 			},
 		)

@@ -264,7 +264,7 @@ func SplitTree(
 
 			log.Debug(
 				"Creating subtree",
-				map[string]interface{}{
+				map[string]any{
 					"name":     name,
 					"contents": subpaths,
 					"id":       tree.Id().String(),
@@ -344,7 +344,7 @@ func SplitCommit(
 		path := path.Join(parent, entry.Name)
 		log.Debug(
 			"Considering",
-			map[string]interface{}{
+			map[string]any{
 				"path":  path,
 				"entry": *entry,
 			},
@@ -353,7 +353,7 @@ func SplitCommit(
 			if description.ContainsPath(path) {
 				log.Debug(
 					"Found a match for a path",
-					map[string]interface{}{
+					map[string]any{
 						"path":        path,
 						"entry":       *entry,
 						"description": description,
@@ -725,7 +725,7 @@ func BuildTree(
 			}
 			log.Debug(
 				"Creating blob",
-				map[string]interface{}{
+				map[string]any{
 					"path": name,
 					"len":  len(contents),
 					"id":   oid,
@@ -770,7 +770,7 @@ func BuildTree(
 	}
 	log.Debug(
 		"Creating tree",
-		map[string]interface{}{
+		map[string]any{
 			"id": mergedTreeID,
 		},
 	)

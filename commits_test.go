@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/omegaup/go-base/logging/log15"
+	"github.com/omegaup/go-base/logging/log15/v3"
 
 	git "github.com/libgit2/git2go/v33"
 )
@@ -97,7 +97,7 @@ func TestSplitTrees(t *testing.T) {
 			path := path.Join(parent, entry.Name)
 			log.Debug(
 				"Considering",
-				map[string]interface{}{
+				map[string]any{
 					"path":  path,
 					"entry": *entry,
 				},
@@ -346,7 +346,7 @@ func TestSpliceCommit(t *testing.T) {
 
 	log.Debug(
 		"Commands changed",
-		map[string]interface{}{
+		map[string]any{
 			"newCommands": newCommands,
 		},
 	)

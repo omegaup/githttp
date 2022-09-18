@@ -12,8 +12,8 @@ import (
 	"reflect"
 	"testing"
 
-	log15 "github.com/omegaup/go-base/logging/log15"
-	base "github.com/omegaup/go-base/v3"
+	"github.com/omegaup/go-base/logging/log15/v3"
+	"github.com/omegaup/go-base/v3"
 
 	git "github.com/libgit2/git2go/v33"
 )

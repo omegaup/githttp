@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - 1.17
+          - 1.19
     name: Go ${{ matrix.go }}
 
     runs-on: ubuntu-latest

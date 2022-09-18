@@ -728,7 +728,7 @@ func handleShow(
 	requestPath string,
 	method string,
 	acceptMIMEType string,
-) (interface{}, error) {
+) (any, error) {
 	splitPath := strings.SplitN(requestPath, "/", 4)
 	if len(splitPath) < 3 {
 		return nil, base.ErrorWithCategory(
@@ -924,7 +924,7 @@ func handleBrowse(
 	}
 	defer lockfile.Unlock()
 
-	var result interface{}
+	var result any
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
 		txn.SetName(method + " /:repo/+refs/")
 		result, err = handleRefs(ctx, repository, level, protocol, method)
