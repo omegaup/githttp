@@ -803,7 +803,6 @@ func TestHandlePushPreprocess(t *testing.T) {
 				newPackPath := path.Join(tmpDir, "new.pack")
 				newCommands, err := SpliceCommit(
 					originalRepository,
-					m,
 					originalCommit,
 					nil,
 					map[string]io.Reader{},
