@@ -244,28 +244,50 @@ func formatBlob(
 // of the refs that are viewable by the requestor.
 func isCommitIDReachable(
 	ctx context.Context,
-	handle *RepositoryHandle,
+	repository *git.Repository,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
 	commitID *git.Oid,
 ) error {
-	var oids []*git.Oid
-	references, err := handle.References()
+	it, err := repository.NewReferenceIterator()
 	if err != nil {
-		return err
+		return errors.Wrap(
+			err,
+			"failed to create a reference iterator",
+		)
 	}
-	for _, ref := range references {
-		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name) {
+	defer it.Free()
+
+	references := make(map[string]*git.Oid)
+	for {
+		ref, err := it.Next()
+		if err != nil {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
+				break
+			}
+			return errors.Wrap(
+				err,
+				"failed to get an entry from the reference iterator",
+			)
+		}
+		defer ref.Free()
+
+		references[ref.Name()] = ref.Target()
+	}
+
+	var oids []*git.Oid
+	for name, target := range references {
+		if level == AuthorizationAllowedRestricted && isRestrictedRef(name) {
 			continue
 		}
-		if !protocol.ReferenceDiscoveryCallback(ctx, handle.Repository, ref.Name) {
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, name) {
 			continue
 		}
 
-		oids = append(oids, ref.Target)
+		oids = append(oids, target)
 	}
 
-	reachable, err := handle.Repository.ReachableFromAny(commitID, oids)
+	reachable, err := repository.ReachableFromAny(commitID, oids)
 	if err != nil {
 		return base.ErrorWithCategory(
 			ErrNotFound,
@@ -295,40 +317,70 @@ func isCommitIDReachable(
 
 func handleRefs(
 	ctx context.Context,
-	handle *RepositoryHandle,
+	repository *git.Repository,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
 	method string,
 ) (RefsResult, error) {
-	references, err := handle.References()
+	it, err := repository.NewReferenceIterator()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(
+			err,
+			"failed to create a reference iterator",
+		)
 	}
+	defer it.Free()
 
 	result := make(RefsResult)
 
-	head, err := handle.Repository.Head()
+	head, err := repository.Head()
 	if err == nil {
 		defer head.Free()
 	}
 
-	for _, ref := range references {
-		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name) {
+	for {
+		ref, err := it.Next()
+		if err != nil {
+			if git.IsErrorCode(err, git.ErrorCodeIterOver) {
+				break
+			}
+			return nil, errors.Wrap(
+				err,
+				"failed to get an entry from the reference iterator",
+			)
+		}
+		defer ref.Free()
+
+		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name()) {
 			continue
 		}
-		if !protocol.ReferenceDiscoveryCallback(ctx, handle.Repository, ref.Name) {
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, ref.Name()) {
 			continue
 		}
-		if head != nil && head.Name() == ref.Name {
+		if head != nil && head.Name() == ref.Name() {
 			result["HEAD"] = &RefResult{
 				Target: head.Name(),
 				Value:  head.Target().String(),
 			}
 		}
-		result[ref.Name] = &RefResult{
-			Target: ref.SymbolicTarget,
-			Value:  ref.Target.String(),
+		refResult := &RefResult{}
+		if ref.Type() == git.ReferenceSymbolic {
+			refResult.Target = ref.SymbolicTarget()
+			target, err := ref.Resolve()
+			if err != nil {
+				return nil, errors.Wrapf(
+					err,
+					"failed to resolve the symbolic target for %s(%s)",
+					ref.Name(),
+					ref.Target(),
+				)
+			}
+			defer target.Free()
+			refResult.Value = target.Target().String()
+		} else if ref.Type() == git.ReferenceOid {
+			refResult.Value = ref.Target().String()
 		}
+		result[ref.Name()] = refResult
 	}
 
 	return result, nil
@@ -336,7 +388,7 @@ func handleRefs(
 
 func handleLog(
 	ctx context.Context,
-	handle *RepositoryHandle,
+	repository *git.Repository,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
 	requestPath string,
@@ -353,7 +405,7 @@ func handleLog(
 	if len(splitPath) == 3 && len(splitPath[2]) != 0 {
 		rev = splitPath[2]
 	}
-	obj, err := handle.Repository.RevparseSingle(rev)
+	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
 		return nil, base.ErrorWithCategory(
 			ErrNotFound,
@@ -374,7 +426,7 @@ func handleLog(
 
 	if err := isCommitIDReachable(
 		ctx,
-		handle,
+		repository,
 		level,
 		protocol,
 		obj.Id(),
@@ -386,7 +438,7 @@ func handleLog(
 		return nil, nil
 	}
 
-	walk, err := handle.Repository.Walk()
+	walk, err := repository.Walk()
 	if err != nil {
 		return nil, errors.Wrap(
 			err,
@@ -466,7 +518,7 @@ func (a *tarArchive) Create(path string, size int64) (io.Writer, error) {
 
 func handleArchive(
 	ctx context.Context,
-	handle *RepositoryHandle,
+	repository *git.Repository,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
 	requestPath string,
@@ -500,12 +552,12 @@ func handleArchive(
 			errors.New("empty revision"),
 		)
 	}
-	odb, err := handle.Repository.Odb()
+	odb, err := repository.Odb()
 	if err != nil {
 		return errors.Wrapf(err, "failed to get repository odb")
 	}
 	defer odb.Free()
-	obj, err := handle.Repository.RevparseSingle(rev)
+	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
 		return base.ErrorWithCategory(
 			ErrNotFound,
@@ -521,7 +573,7 @@ func handleArchive(
 	if obj.Type() == git.ObjectCommit {
 		if err := isCommitIDReachable(
 			ctx,
-			handle,
+			repository,
 			level,
 			protocol,
 			obj.Id(),
@@ -617,7 +669,7 @@ func handleArchive(
 			return nil
 		}
 
-		blob, err := handle.Repository.LookupBlob(entry.Id)
+		blob, err := repository.LookupBlob(entry.Id)
 		if err != nil {
 			return errors.Wrapf(
 				err,
@@ -670,7 +722,7 @@ func handleArchive(
 
 func handleShow(
 	ctx context.Context,
-	handle *RepositoryHandle,
+	repository *git.Repository,
 	level AuthorizationLevel,
 	protocol *GitProtocol,
 	requestPath string,
@@ -686,7 +738,7 @@ func handleShow(
 	}
 	rev := splitPath[2]
 
-	obj, err := handle.Repository.RevparseSingle(rev)
+	obj, err := repository.RevparseSingle(rev)
 	if err != nil {
 		return nil, base.ErrorWithCategory(
 			ErrNotFound,
@@ -702,7 +754,7 @@ func handleShow(
 	if obj.Type() == git.ObjectCommit {
 		if err := isCommitIDReachable(
 			ctx,
-			handle,
+			repository,
 			level,
 			protocol,
 			obj.Id(),
@@ -713,7 +765,7 @@ func handleShow(
 		if len(splitPath) > 3 {
 			// URLs of the form /+/rev/path. This shows either a tree or a blob.
 			rev = fmt.Sprintf("%s:%s", rev, splitPath[3])
-			obj, err = handle.Repository.RevparseSingle(rev)
+			obj, err = repository.RevparseSingle(rev)
 			if err != nil {
 				return nil, base.ErrorWithCategory(
 					ErrNotFound,
@@ -752,7 +804,7 @@ func handleShow(
 					),
 				)
 			}
-			obj, err = handle.Repository.Lookup(entry.Id)
+			obj, err = repository.Lookup(entry.Id)
 			if err != nil {
 				return nil, base.ErrorWithCategory(
 					ErrNotFound,
@@ -802,7 +854,7 @@ func handleShow(
 
 		return formatCommit(commit), nil
 	} else if obj.Type() == git.ObjectTree {
-		return formatTree(handle.Repository, obj.Id())
+		return formatTree(repository, obj.Id())
 	} else if obj.Type() == git.ObjectBlob {
 		blob, err := obj.AsBlob()
 		if err != nil {
@@ -844,37 +896,57 @@ func handleBrowse(
 	method := r.Method
 	acceptMIMEType := r.Header.Get("Accept")
 	txn := tracing.FromContext(ctx)
-	handle, err := OpenRepositoryHandle(ctx, m, repositoryPath, protocol.log)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,
-			"failed to read references",
+			"failed to open git repository",
 		)
 	}
-	defer handle.Release()
+	defer repository.Free()
+
+	lockfile := m.NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		protocol.log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
+		if err := lockfile.RLock(); err != nil {
+			protocol.log.Error(
+				"Failed to acquire the lockfile",
+				map[string]interface{}{
+					"err": err,
+				},
+			)
+			return err
+		}
+	}
+	defer lockfile.Unlock()
 
 	var result any
 	if requestPath == "/+refs" || requestPath == "/+refs/" {
 		txn.SetName(method + " /:repo/+refs/")
-		result, err = handleRefs(ctx, handle, level, protocol, method)
+		result, err = handleRefs(ctx, repository, level, protocol, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+log/") {
 		txn.SetName(method + " /:repo/+log/")
-		result, err = handleLog(ctx, handle, level, protocol, requestPath, method)
+		result, err = handleLog(ctx, repository, level, protocol, requestPath, method)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+archive/") {
 		txn.SetName(method + " /:repo/+archive/")
-		err = handleArchive(ctx, handle, level, protocol, requestPath, r, w)
+		err = handleArchive(ctx, repository, level, protocol, requestPath, r, w)
 		if err != nil {
 			return err
 		}
 	} else if strings.HasPrefix(requestPath, "/+/") {
 		txn.SetName(method + " /:repo/+/")
-		result, err = handleShow(ctx, handle, level, protocol, requestPath, method, acceptMIMEType)
+		result, err = handleShow(ctx, repository, level, protocol, requestPath, method, acceptMIMEType)
 		if err != nil {
 			return err
 		}

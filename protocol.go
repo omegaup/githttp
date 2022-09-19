@@ -487,21 +487,42 @@ func handleInfoRefs(
 	log logging.Logger,
 	w io.Writer,
 ) error {
-	handle, err := OpenRepositoryHandle(ctx, m, repositoryPath, log)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
-		return err
+		return errors.Wrap(
+			err,
+			"failed to open git repository",
+		)
 	}
-	defer handle.Release()
+	defer repository.Free()
 
-	references, err := handle.References()
+	lockfile := m.NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
+		if err := lockfile.RLock(); err != nil {
+			return errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			)
+		}
+	}
+	defer lockfile.Unlock()
+
+	it, err := repository.NewReferenceIterator()
 	if err != nil {
 		return errors.Wrap(
 			err,
 			"failed to read references",
 		)
 	}
+	defer it.Free()
 
-	head, err := handle.Repository.Head()
+	head, err := repository.Head()
 	if err != nil && !git.IsErrorCode(err, git.ErrorCodeUnbornBranch) {
 		return errors.Wrap(
 			err,
@@ -531,24 +552,37 @@ func handleInfoRefs(
 		)))
 		sentCapabilities = true
 	}
-	for _, ref := range references {
-		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name) {
+	for {
+		ref, err := it.Next()
+		if err != nil {
+			if !git.IsErrorCode(err, git.ErrorCodeIterOver) {
+				log.Error(
+					"Error getting reference",
+					map[string]interface{}{
+						"err": err,
+					},
+				)
+			}
+			break
+		}
+		defer ref.Free()
+		if level == AuthorizationAllowedRestricted && isRestrictedRef(ref.Name()) {
 			continue
 		}
-		if !protocol.ReferenceDiscoveryCallback(ctx, handle.Repository, ref.Name) {
+		if !protocol.ReferenceDiscoveryCallback(ctx, repository, ref.Name()) {
 			continue
 		}
 		if sentCapabilities {
 			p.WritePktLine([]byte(fmt.Sprintf(
 				"%s %s\n",
-				ref.Target.String(),
-				ref.Name,
+				ref.Target().String(),
+				ref.Name(),
 			)))
 		} else {
 			p.WritePktLine([]byte(fmt.Sprintf(
 				"%s %s\x00%s\n",
-				ref.Target.String(),
-				ref.Name,
+				ref.Target().String(),
+				ref.Name(),
 				strings.Join(capabilities, " "),
 			)))
 			sentCapabilities = true
@@ -604,16 +638,33 @@ func handlePull(
 	r io.Reader,
 	w io.Writer,
 ) error {
-	handle, err := OpenRepositoryHandle(ctx, m, repositoryPath, log)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,
 			"failed to open git repository",
 		)
 	}
-	defer handle.Release()
+	defer repository.Free()
 
-	pb, err := handle.Repository.NewPackbuilder()
+	lockfile := m.NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
+		if err := lockfile.RLock(); err != nil {
+			return errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			)
+		}
+	}
+	defer lockfile.Unlock()
+
+	pb, err := repository.NewPackbuilder()
 	if err != nil {
 		return errors.Wrap(
 			err,
@@ -691,7 +742,7 @@ func handlePull(
 					errors.Errorf("invalid OID: %s", tokens[1]),
 				)
 			}
-			commit, err := handle.Repository.LookupCommit(oid)
+			commit, err := repository.LookupCommit(oid)
 			if err != nil {
 				log.Debug(
 					"Unknown commit requested",
@@ -803,7 +854,7 @@ func handlePull(
 					errors.Errorf("invalid OID: %s", tokens[1]),
 				)
 			}
-			commit, err := handle.Repository.LookupCommit(oid)
+			commit, err := repository.LookupCommit(oid)
 			if err == nil {
 				commit.Free()
 				if !acked {
@@ -921,14 +972,31 @@ func handlePush(
 	r io.Reader,
 	w io.Writer,
 ) error {
-	handle, err := OpenRepositoryHandle(ctx, m, repositoryPath, log)
+	repository, err := openRepository(ctx, repositoryPath)
 	if err != nil {
 		return errors.Wrap(
 			err,
 			"failed to open git repository",
 		)
 	}
-	defer handle.Release()
+	defer repository.Free()
+
+	lockfile := m.NewLockfile(repository.Path())
+	if ok, err := lockfile.TryRLock(); !ok {
+		log.Info(
+			"Waiting for the lockfile",
+			map[string]interface{}{
+				"err": err,
+			},
+		)
+		if err := lockfile.RLock(); err != nil {
+			return errors.Wrap(
+				err,
+				"failed to acquire the lockfile",
+			)
+		}
+	}
+	defer lockfile.Unlock()
 
 	pr := NewPktLineReader(r)
 	reportStatus := false
@@ -977,7 +1045,7 @@ func handlePush(
 			ReferenceName: tokens[2],
 		}
 		if _, ok := references[command.ReferenceName]; !ok {
-			ref, err := handle.Repository.References.Lookup(command.ReferenceName)
+			ref, err := repository.References.Lookup(command.ReferenceName)
 			if err == nil {
 				defer ref.Free()
 			}
@@ -1005,19 +1073,12 @@ func handlePush(
 
 	_, err, unpackErr := protocol.PushPackfile(
 		ctx,
-		handle.Repository,
-		handle.Lockfile,
+		repository,
+		lockfile,
 		level,
 		commands,
 		r,
 	)
-	if handle.Lockfile.State() == LockfileStateLocked {
-		// We successfully acquired the write lock. Regardless of whether we were
-		// able to modify the repository, we invalidate all other pre-existing
-		// handles.
-		handle.DoNotReturnToPool = true
-		defer EvictRepositoryHandles(repositoryPath)
-	}
 	if !reportStatus {
 		return err
 	}
