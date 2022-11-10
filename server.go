@@ -212,6 +212,22 @@ func noopContextCallback(ctx context.Context) context.Context {
 	return ctx
 }
 
+// PostUpdateCallback is invoked by GitServer after an update occurs. It allows
+// for callers to know which files in the git directory have changed.
+type PostUpdateCallback func(
+	ctx context.Context,
+	repo *git.Repository,
+	modifiedFiles []string,
+) error
+
+func noopPostUpdateCallback(
+	ctx context.Context,
+	repo *git.Repository,
+	modifiedFiles []string,
+) error {
+	return nil
+}
+
 // WriteHeader sets the HTTP status code and optionally clears any pending
 // headers from the reply. It also returns the cause of the HTTP error.
 func WriteHeader(w http.ResponseWriter, err error, clearHeaders bool) error {
