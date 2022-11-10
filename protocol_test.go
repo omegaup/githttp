@@ -985,6 +985,98 @@ func TestHandlePushCallback(t *testing.T) {
 	}
 }
 
+func TestHandlePushPostUpdateCallback(t *testing.T) {
+	var inBuf, outBuf bytes.Buffer
+	dir, err := ioutil.TempDir("", "protocol_test")
+	if err != nil {
+		t.Fatalf("Failed to create directory: %v", err)
+	}
+	defer os.RemoveAll(dir)
+	m := NewLockfileManager()
+	defer m.Clear()
+
+	{
+		repo, err := git.InitRepository(dir, true)
+		if err != nil {
+			t.Fatalf("Failed to initialize git repository: %v", err)
+		}
+		repo.Free()
+	}
+
+	{
+		// Taken from git 2.14.1
+		pw := NewPktLineWriter(&inBuf)
+		pw.WritePktLine([]byte("0000000000000000000000000000000000000000 88aa3454adb27c3c343ab57564d962a0a7f6a3c1 refs/heads/master\x00report-status\n"))
+		pw.Flush()
+
+		f, err := os.Open(packFilename)
+		if err != nil {
+			t.Fatalf("Failed to open the packfile: %v", err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(&inBuf, f); err != nil {
+			t.Fatalf("Failed to copy the packfile: %v", err)
+		}
+	}
+
+	log, _ := log15.New("info", false)
+	var modifiedFiles []string
+	err = handlePush(
+		context.Background(),
+		m,
+		dir,
+		AuthorizationAllowed,
+		NewGitProtocol(GitProtocolOpts{
+			PostUpdateCallback: func(
+				ctx context.Context,
+				repository *git.Repository,
+				callbackModifiedFiles []string,
+			) error {
+				modifiedFiles = callbackModifiedFiles
+				return nil
+			},
+			Log: log,
+		}),
+		log,
+		&inBuf,
+		&outBuf,
+	)
+	if err != nil {
+		t.Fatalf("Failed to push: %v", err)
+	}
+
+	expected := []PktLineResponse{
+		{"unpack ok\n", nil},
+		{"ok refs/heads/master\n", nil},
+		{"", ErrFlush},
+	}
+	if actual, ok := ComparePktLineResponse(
+		&outBuf,
+		expected,
+	); !ok {
+		t.Errorf("pkt-reader expected %q, got %q", expected, actual)
+	}
+	equal := false
+	expectedModifiedFiles := []string{
+		"objects/pack/multi-pack-index",
+		"objects/pack/pack-3915156951f90b8239a1d1933cbe85ae1bc7457f.idx",
+		"objects/pack/pack-3915156951f90b8239a1d1933cbe85ae1bc7457f.pack",
+		"refs/heads/master",
+	}
+	if len(expectedModifiedFiles) == len(modifiedFiles) {
+		equal = true
+		for i := range expectedModifiedFiles {
+			if expectedModifiedFiles[i] != modifiedFiles[i] {
+				equal = false
+				break
+			}
+		}
+	}
+	if !equal {
+		t.Errorf("modified files expected %q, got %q", expectedModifiedFiles, modifiedFiles)
+	}
+}
+
 func TestHandlePushUnknownCommit(t *testing.T) {
 	var inBuf, outBuf bytes.Buffer
 	dir, err := ioutil.TempDir("", "protocol_test")

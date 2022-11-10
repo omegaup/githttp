@@ -5,12 +5,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math"
 	"os"
 	"path"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	base "github.com/omegaup/go-base/v3"
 	"github.com/omegaup/go-base/v3/logging"
@@ -122,6 +126,7 @@ type GitProtocol struct {
 	ReferenceDiscoveryCallback ReferenceDiscoveryCallback
 	UpdateCallback             UpdateCallback
 	PreprocessCallback         PreprocessCallback
+	PostUpdateCallback         PostUpdateCallback
 	AllowNonFastForward        bool
 	log                        logging.Logger
 }
@@ -134,6 +139,7 @@ type GitProtocolOpts struct {
 	ReferenceDiscoveryCallback ReferenceDiscoveryCallback
 	UpdateCallback             UpdateCallback
 	PreprocessCallback         PreprocessCallback
+	PostUpdateCallback         PostUpdateCallback
 	AllowNonFastForward        bool
 	Log                        logging.Logger
 }
@@ -152,12 +158,16 @@ func NewGitProtocol(opts GitProtocolOpts) *GitProtocol {
 	if opts.PreprocessCallback == nil {
 		opts.PreprocessCallback = noopPreprocessCallback
 	}
+	if opts.PostUpdateCallback == nil {
+		opts.PostUpdateCallback = noopPostUpdateCallback
+	}
 
 	return &GitProtocol{
 		AuthCallback:               opts.AuthCallback,
 		ReferenceDiscoveryCallback: opts.ReferenceDiscoveryCallback,
 		UpdateCallback:             opts.UpdateCallback,
 		PreprocessCallback:         opts.PreprocessCallback,
+		PostUpdateCallback:         opts.PostUpdateCallback,
 		AllowNonFastForward:        opts.AllowNonFastForward,
 		log:                        opts.Log,
 	}
@@ -287,6 +297,11 @@ func (p *GitProtocol) PushPackfile(
 		acquireLockSegment.End()
 	}
 
+	oldFileMap, err := listFilesRecursively(repository.Path())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list files"), nil
+	}
+
 	err = commitPackfile(packPath, writepack)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to commit packfile"), nil
@@ -341,7 +356,61 @@ func (p *GitProtocol) PushPackfile(
 		)
 	}
 
+	newFileMap, err := listFilesRecursively(repository.Path())
+	if err != nil {
+		p.log.Error(
+			"Failed to get updated list of files",
+			map[string]any{
+				"repository": repository.Path(),
+			},
+		)
+	} else {
+		var modifiedFiles []string
+		for newFile, newMtime := range newFileMap {
+			oldMtime, ok := oldFileMap[newFile]
+			if ok && newMtime == oldMtime {
+				continue
+			}
+			modifiedFiles = append(modifiedFiles, newFile)
+		}
+		sort.Strings(modifiedFiles)
+
+		err := p.PostUpdateCallback(ctx, repository, modifiedFiles)
+		if err != nil {
+			p.log.Error(
+				"Failed to get updated list of files",
+				map[string]any{
+					"repository": repository.Path(),
+				},
+			)
+		}
+	}
+
 	return updatedRefs, nil, nil
+}
+
+func listFilesRecursively(dir string) (map[string]time.Time, error) {
+	result := make(map[string]time.Time)
+	prefix := strings.TrimSuffix(dir, "/") + "/"
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		relpath := strings.TrimPrefix(p, prefix)
+		result[relpath] = info.ModTime()
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // A ReferenceDiscovery represents the result of the reference discovery
